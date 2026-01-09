@@ -8,6 +8,8 @@ import { env } from './config/env';
 import { authRoutes } from './modules/auth/auth.routes';
 import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes';
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
+import { uploadRoutes } from './modules/upload/upload.routes';
+
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -60,6 +62,8 @@ export async function buildApp() {
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
   await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
+  await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+
 
   // TODO: Register other module routes
 

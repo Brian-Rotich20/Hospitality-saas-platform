@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '../../config/database';
 import { vendors, vendorDocuments, users } from '../../db/schema';
 import { redis, setCache, getCache, delCache } from '../../config/redis';
+import { UploadResult } from '../upload/upload.types';
 import type { 
   VendorApplicationInput, 
   PayoutDetailsInput, 
@@ -344,5 +345,57 @@ export class VendorService {
     // TODO: Unpublish all vendor listings
 
     return vendor;
+  }
+  // Add this method to VendorService class
+
+  async uploadVendorDocument(
+    userId: string,
+    documentType: string,
+    uploadResult: UploadResult
+  ): Promise<any> {
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.userId, userId),
+    });
+
+    if (!vendor) {
+      throw new Error('Vendor profile not found');
+    }
+
+    // Check if document type already exists
+    const existingDoc = await db.query.vendorDocuments.findFirst({
+      where: and(
+        eq(vendorDocuments.vendorId, vendor.id),
+        eq(vendorDocuments.documentType, documentType)
+      ),
+    });
+
+    if (existingDoc) {
+      // Update existing document
+      const [updatedDoc] = await db.update(vendorDocuments)
+        .set({
+          documentUrl: uploadResult.url,
+          fileName: uploadResult.fileName,
+          fileSize: uploadResult.fileSize.toString(),
+          uploadedAt: new Date(),
+        })
+        .where(eq(vendorDocuments.id, existingDoc.id))
+        .returning();
+
+      return updatedDoc;
+    }
+
+    // Create new document
+    const [document] = await db.insert(vendorDocuments).values({
+      vendorId: vendor.id,
+      documentType,
+      documentUrl: uploadResult.url,
+      fileName: uploadResult.fileName,
+      fileSize: uploadResult.fileSize.toString(),
+    }).returning();
+
+    // Invalidate cache
+    await delCache(`vendor:profile:${userId}`);
+
+    return document;
   }
 }
