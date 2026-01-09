@@ -1,3 +1,4 @@
+import { db } from './config/database';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -9,6 +10,7 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes';
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
 import { uploadRoutes } from './modules/upload/upload.routes';
+import { listingRoutes } from './modules/listings/listings.routes';
 
 
 export async function buildApp() {
@@ -52,6 +54,8 @@ export async function buildApp() {
   fastify.decorate('authenticate', authenticate);
   fastify.decorate('requireAdmin', requireAdmin);
   fastify.decorate('requireVendor', requireVendor); 
+  // Make the database accessible via fastify instance
+  fastify.decorate('db', db);
 
   // Health check
   fastify.get('/health', async () => {
@@ -63,6 +67,7 @@ export async function buildApp() {
   await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
   await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+  await fastify.register(listingRoutes, { prefix: '/api/listings' });
 
 
   // TODO: Register other module routes
