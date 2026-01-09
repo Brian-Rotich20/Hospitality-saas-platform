@@ -7,7 +7,8 @@ const authService = new AuthService();
 export class AuthController {
   async register(request: FastifyRequest<{ Body: RegisterInput }>, reply: FastifyReply) {
     try {
-      const result = await authService.register(request.body);
+      const { role = 'customer', ...other } = request.body as RegisterInput;
+      const result = await authService.register({ role, ...other }); // include role
       return reply.code(201).send(result);
     } catch (error: any) {
       return reply.code(400).send({ error: error.message });

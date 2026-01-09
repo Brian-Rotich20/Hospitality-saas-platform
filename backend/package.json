@@ -6,14 +6,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "npm run clean && tsc",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx src/db/seed.ts"
-  },
+    "db:seed": "tsx src/db/seed.ts",
+    "clean": "rimraf dist && rimraf \"src/**/*.{js,d.ts,map}\" --glob"
+
+   },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -34,7 +36,8 @@
     "jsonwebtoken": "^9.0.3",
     "postgres": "^3.4.7",
     "redis": "^5.10.0",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "zod-to-json-schema": "^3.25.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -42,6 +45,7 @@
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
     "prettier": "^3.7.4",
+    "rimraf": "^6.1.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

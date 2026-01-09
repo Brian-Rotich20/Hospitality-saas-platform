@@ -17,20 +17,30 @@ export class AuthService {
 
     const passwordHash = await hashPassword(data.password);
 
-    const [user] = await db.insert(users).values({
-      email: data.email,
-      phone: data.phone,
-      passwordHash,
-      role: data.role,
-    }).returning();
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: data.email,
+        phone: data.phone,
+        passwordHash,
+        role: data.role,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        role: users.role,
+      });
 
-    // TODO: Send verification SMS
+    if (!user) {
+      throw new Error("User creation failed");
+    }
 
     const token = signToken({
       userId: user.id,
       email: user.email,
       role: user.role,
     });
+
 
     return { user, token };
   }
