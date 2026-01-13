@@ -2,10 +2,10 @@ import { eq, and, or, gte, lte, like, sql, desc, asc } from 'drizzle-orm';
 import { db } from '../../config/database';
 import { listings, vendors } from '../../db/schema';
 import { setCache, getCache, delCache } from '../../config/redis';
+import type { ListingFilters } from './listings.types';
 import type { 
   CreateListingInput, 
   UpdateListingInput,
-  ,
    
 } from './listings.schema';
 

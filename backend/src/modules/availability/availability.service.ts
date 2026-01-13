@@ -171,28 +171,38 @@ export class AvailabilityService {
     // Build calendar object
     const calendar: Record<string, { available: boolean; reason?: string; booking?: any }> = {};
 
-    // Mark blocked dates
-    blockedDates.forEach(date => {
-      calendar[date.date] = {
-        available: date.available,
-        reason: date.blockedReason || undefined,
-      };
+    const toISODate = (d: Date | string) =>
+    typeof d === 'string' ? d : d.toISOString().slice(0, 10);
+
+        // Mark blocked dates
+    blockedDates.forEach(row => {
+    const dateStr = toISODate(row.date);
+
+    calendar[dateStr] = {
+        available: row.available,
+        ...(row.blockedReason && { reason: row.blockedReason }),
+        };
     });
+
 
     // Mark booked dates
     bookedDates.forEach(booking => {
-      const start = new Date(booking.startDate);
-      const end = new Date(booking.endDate);
-      
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+    if (!booking.startDate || !booking.endDate) return;
+
+    const start = new Date(booking.startDate);
+    const end = new Date(booking.endDate);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().slice(0, 10);
+
         calendar[dateStr] = {
-          available: false,
-          reason: 'Booked',
-          booking: { status: booking.status },
+        available: false,
+        reason: 'Booked',
+        booking: { status: booking.status },
         };
-      }
+    }
     });
+
 
     // Cache for 5 minutes
     await setCache(cacheKey, calendar, 300);

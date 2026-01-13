@@ -175,11 +175,15 @@ export class BookingService {
     }
 
     // Check if still available
+    
+    const startDateStr = booking.startDate.toISOString().split('T')[0]!;
+    const endDateStr = booking.endDate.toISOString().split('T')[0]!;
     const isAvailable = await availabilityService.checkAvailability(
-      booking.listingId,
-      booking.startDate.toISOString().split('T')[0],
-      booking.endDate.toISOString().split('T')[0]
-    );
+        booking.listingId,
+        startDateStr,
+        endDateStr
+        );
+   
 
     if (!isAvailable) {
       throw new Error('Dates are no longer available');

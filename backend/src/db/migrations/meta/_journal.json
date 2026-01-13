@@ -8,6 +8,20 @@
       "when": 1767958394027,
       "tag": "0000_complex_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768297965703,
+      "tag": "0001_elite_mauler",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768314814963,
+      "tag": "0002_flashy_the_professor",
+      "breakpoints": true
     }
   ]
 }
