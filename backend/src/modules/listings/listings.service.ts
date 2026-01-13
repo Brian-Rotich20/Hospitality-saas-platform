@@ -5,8 +5,8 @@ import { setCache, getCache, delCache } from '../../config/redis';
 import type { 
   CreateListingInput, 
   UpdateListingInput,
-  PublishListingInput,
-  ListingFilters 
+  ,
+   
 } from './listings.schema';
 
 export class ListingService {

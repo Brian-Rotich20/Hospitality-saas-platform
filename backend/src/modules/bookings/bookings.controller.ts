@@ -1,34 +1,31 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { ListingService } from './listings.service';
+import { BookingService } from './bookings.service';
 import { db } from '../../config/database';
 import { vendors } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
-const listingService = new ListingService();
+const bookingService = new BookingService();
 
-export class ListingController {
-  // Create listing
-  async createListing(request: FastifyRequest, reply: FastifyReply) {
+export class BookingController {
+  // Create booking - REMOVE TYPE ANNOTATIONS
+  async createBooking(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
-      
-      const vendor = await db.query.vendors.findFirst({
-        where: (vendors, { eq }) => eq(vendors.userId, userId),
-      });
+      const role = (request.user as any).role;
 
-      if (!vendor) {
+      if (role !== 'customer') {
         return reply.code(403).send({
           success: false,
-          error: 'Vendor profile not found. Please complete vendor registration first.',
+          error: 'Only customers can create bookings',
         });
       }
 
-      const listing = await listingService.createListing(vendor.id, request.body as any);
+      const booking = await bookingService.createBooking(userId, request.body as any);
 
       return reply.code(201).send({
         success: true,
-        message: 'Listing created successfully',
-        data: listing,
+        message: 'Booking request created successfully',
+        data: booking,
       });
     } catch (error: any) {
       return reply.code(400).send({
@@ -38,15 +35,18 @@ export class ListingController {
     }
   }
 
-  // Get listing by ID
-  async getListingById(request: FastifyRequest, reply: FastifyReply) {
+  // Get booking by ID
+  async getBookingById(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as any;
-      const listing = await listingService.getListingById(id, true);
+      const userId = (request.user as any).userId;
+      const role = (request.user as any).role;
+
+      const booking = await bookingService.getBookingById(id, userId, role);
 
       return reply.code(200).send({
         success: true,
-        data: listing,
+        data: booking,
       });
     } catch (error: any) {
       return reply.code(404).send({
@@ -56,30 +56,12 @@ export class ListingController {
     }
   }
 
-  // Get listing by slug
-  async getListingBySlug(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { slug } = request.params as any;
-      const listing = await listingService.getListingBySlug(slug);
-
-      return reply.code(200).send({
-        success: true,
-        data: listing,
-      });
-    } catch (error: any) {
-      return reply.code(404).send({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-
-  // Update listing
-  async updateListing(request: FastifyRequest, reply: FastifyReply) {
+  // Accept booking (vendor)
+  async acceptBooking(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as any;
       const userId = (request.user as any).userId;
-      
+
       const vendor = await db.query.vendors.findFirst({
         where: (vendors, { eq }) => eq(vendors.userId, userId),
       });
@@ -91,12 +73,12 @@ export class ListingController {
         });
       }
 
-      const listing = await listingService.updateListing(id, vendor.id, request.body as any);
+      const booking = await bookingService.acceptBooking(id, vendor.id);
 
       return reply.code(200).send({
         success: true,
-        message: 'Listing updated successfully',
-        data: listing,
+        message: 'Booking accepted successfully',
+        data: booking,
       });
     } catch (error: any) {
       return reply.code(400).send({
@@ -106,45 +88,12 @@ export class ListingController {
     }
   }
 
-  // Publish/unpublish listing
-  async updateListingStatus(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { id } = request.params as any;
-      const { status } = request.body as any;
-      const userId = (request.user as any).userId;
-      
-      const vendor = await db.query.vendors.findFirst({
-        where: (vendors, { eq }) => eq(vendors.userId, userId),
-      });
-
-      if (!vendor) {
-        return reply.code(403).send({
-          success: false,
-          error: 'Vendor profile not found',
-        });
-      }
-
-      const listing = await listingService.updateListingStatus(id, vendor.id, status);
-
-      return reply.code(200).send({
-        success: true,
-        message: `Listing ${status === 'active' ? 'published' : 'paused'} successfully`,
-        data: listing,
-      });
-    } catch (error: any) {
-      return reply.code(400).send({
-        success: false,
-        error: error.message,
-      });
-    }
-  }
-
-  // Delete listing
-  async deleteListing(request: FastifyRequest, reply: FastifyReply) {
+  // Decline booking (vendor)
+  async declineBooking(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as any;
       const userId = (request.user as any).userId;
-      
+
       const vendor = await db.query.vendors.findFirst({
         where: (vendors, { eq }) => eq(vendors.userId, userId),
       });
@@ -156,11 +105,12 @@ export class ListingController {
         });
       }
 
-      await listingService.deleteListing(id, vendor.id);
+      const booking = await bookingService.declineBooking(id, vendor.id, request.body as any);
 
       return reply.code(200).send({
         success: true,
-        message: 'Listing deleted successfully',
+        message: 'Booking declined',
+        data: booking,
       });
     } catch (error: any) {
       return reply.code(400).send({
@@ -170,15 +120,18 @@ export class ListingController {
     }
   }
 
-  // Search listings
-  async searchListings(request: FastifyRequest, reply: FastifyReply) {
+  // Cancel booking (customer)
+  async cancelBooking(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const listings = await listingService.searchListings(request.query as any);
+      const { id } = request.params as any;
+      const userId = (request.user as any).userId;
+
+      const booking = await bookingService.cancelBooking(id, userId, request.body as any);
 
       return reply.code(200).send({
         success: true,
-        data: listings,
-        count: listings.length,
+        message: 'Booking cancelled successfully',
+        data: booking,
       });
     } catch (error: any) {
       return reply.code(400).send({
@@ -188,11 +141,31 @@ export class ListingController {
     }
   }
 
-  // Get my listings
-  async getMyListings(request: FastifyRequest, reply: FastifyReply) {
+  // Get my bookings (customer)
+  async getMyBookings(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
-      
+
+      const bookings = await bookingService.getCustomerBookings(userId, request.query as any);
+
+      return reply.code(200).send({
+        success: true,
+        data: bookings,
+        count: bookings.length,
+      });
+    } catch (error: any) {
+      return reply.code(400).send({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  // Get vendor bookings
+  async getVendorBookings(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const userId = (request.user as any).userId;
+
       const vendor = await db.query.vendors.findFirst({
         where: (vendors, { eq }) => eq(vendors.userId, userId),
       });
@@ -204,11 +177,12 @@ export class ListingController {
         });
       }
 
-      const listings = await listingService.getMyListings(vendor.id);
+      const bookings = await bookingService.getVendorBookings(vendor.id, request.query as any);
 
       return reply.code(200).send({
         success: true,
-        data: listings,
+        data: bookings,
+        count: bookings.length,
       });
     } catch (error: any) {
       return reply.code(400).send({
@@ -218,14 +192,28 @@ export class ListingController {
     }
   }
 
-  // Get featured listings
-  async getFeaturedListings(request: FastifyRequest, reply: FastifyReply) {
+  // Get pending bookings (vendor dashboard)
+  async getPendingBookings(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const listings = await listingService.getFeaturedListings(10);
+      const userId = (request.user as any).userId;
+
+      const vendor = await db.query.vendors.findFirst({
+        where: (vendors, { eq }) => eq(vendors.userId, userId),
+      });
+
+      if (!vendor) {
+        return reply.code(403).send({
+          success: false,
+          error: 'Vendor profile not found',
+        });
+      }
+
+      const bookings = await bookingService.getPendingBookings(vendor.id);
 
       return reply.code(200).send({
         success: true,
-        data: listings,
+        data: bookings,
+        count: bookings.length,
       });
     } catch (error: any) {
       return reply.code(400).send({

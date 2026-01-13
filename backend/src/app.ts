@@ -11,12 +11,15 @@ import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.route
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
 import { uploadRoutes } from './modules/upload/upload.routes';
 import { listingRoutes } from './modules/listings/listings.routes';
-
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { availabilityRoutes } from './modules/availability/availability.routes';
+import { bookingRoutes } from './modules/bookings/bookings.routes';
 
 export async function buildApp() {
+  // ✅ SINGLE Fastify instance with Zod provider
   const fastify = Fastify({
     logger: true,
-  });
+  }).withTypeProvider<ZodTypeProvider>();
 
   // Register plugins
   await fastify.register(cors, {
@@ -29,9 +32,9 @@ export async function buildApp() {
 
   await fastify.register(multipart, {
     limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB
+      fileSize: 5 * 1024 * 1024,
     },
-  })
+  });
 
   await fastify.register(swagger, {
     swagger: {
@@ -39,8 +42,6 @@ export async function buildApp() {
         title: 'Hospitality SaaS API',
         version: '1.0.0',
       },
-      host: `localhost:${env.PORT}`,
-      schemes: ['http', 'https'],
       consumes: ['application/json'],
       produces: ['application/json'],
     },
@@ -50,11 +51,10 @@ export async function buildApp() {
     routePrefix: '/docs',
   });
 
-  // Decorate Fastify instance with authentication middleware
+  // Decorators
   fastify.decorate('authenticate', authenticate);
   fastify.decorate('requireAdmin', requireAdmin);
-  fastify.decorate('requireVendor', requireVendor); 
-  // Make the database accessible via fastify instance
+  fastify.decorate('requireVendor', requireVendor);
   fastify.decorate('db', db);
 
   // Health check
@@ -62,15 +62,14 @@ export async function buildApp() {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // Register routes
+  // Routes (NOW ZOD-AWARE ✅)
   await fastify.register(authRoutes, { prefix: '/api/auth' });
   await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
   await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
   await fastify.register(listingRoutes, { prefix: '/api/listings' });
-
-
-  // TODO: Register other module routes
+  await fastify.register(availabilityRoutes, { prefix: '/api' });
+  await fastify.register(bookingRoutes, { prefix: '/api/bookings' });
 
   return fastify;
 }
