@@ -4,6 +4,9 @@ import { bookings, listings, users, vendors } from '../../db/schema';
 import { AvailabilityService } from '../availability/availability.service';
 import type { CreateBookingInput, DeclineBookingInput, CancelBookingInput, GetBookingsInput } from './bookings.schema';
 import type { PricingBreakdown } from './bookings.types';
+import { PayoutService } from '../payouts/payouts.service';
+
+const payoutService = new PayoutService();
 
 const availabilityService = new AvailabilityService();
 
@@ -286,6 +289,7 @@ export class BookingService {
             where: eq(bookings.id, bookingId),
         });
 
+        
         if (!booking) {
             throw new Error('Booking not found');
         }
@@ -319,6 +323,12 @@ export class BookingService {
             .where(eq(listings.id, booking.listingId));
 
         // TODO: Trigger payout process
+        try {
+          await payoutService.createPayoutForBooking(bookingId);
+          console.log(`✅ Payout created for booking ${bookingId}`);
+        } catch (error) {
+          console.error('⚠️ Payout creation failed:', error);
+        }
 
         return completedBooking;
     }

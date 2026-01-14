@@ -14,6 +14,8 @@ import { listingRoutes } from './modules/listings/listings.routes';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { availabilityRoutes } from './modules/availability/availability.routes';
 import { bookingRoutes } from './modules/bookings/bookings.routes';
+import { payoutRoutes, payoutAdminRoutes } from './modules/payouts/payouts.routes';
+
 
 export async function buildApp() {
   // ✅ SINGLE Fastify instance with Zod provider
@@ -70,6 +72,9 @@ export async function buildApp() {
   await fastify.register(listingRoutes, { prefix: '/api/listings' });
   await fastify.register(availabilityRoutes, { prefix: '/api' });
   await fastify.register(bookingRoutes, { prefix: '/api/bookings' });
+  await fastify.register(payoutRoutes, { prefix: '/api/payouts' });
+  await fastify.register(payoutAdminRoutes, { prefix: '/api/admin/payouts' });
+  
 
   return fastify;
 }

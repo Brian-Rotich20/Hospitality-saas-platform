@@ -32,6 +32,29 @@ const envSchema = z.object({
   MAX_FILE_SIZE: z.string().default('5242880'),
   ALLOWED_IMAGE_TYPES: z.string().default('image/jpeg,image/png,image/webp'),
   ALLOWED_DOCUMENT_TYPES: z.string().default('application/pdf,image/jpeg,image/png'),
+
+    // Flutterwave
+  FLUTTERWAVE_PUBLIC_KEY: z.string().optional(),
+  FLUTTERWAVE_SECRET_KEY: z.string().optional(),
+  FLUTTERWAVE_ENCRYPTION_KEY: z.string().optional(),
+  FLUTTERWAVE_WEBHOOK_SECRET: z.string().optional(),
+  
+  // Payment URLs
+  PAYMENT_CALLBACK_URL: z.string().optional(),
+  PAYMENT_REDIRECT_URL: z.string().optional(),
+
+  // SendGrid
+   SENDGRID_API_KEY: z.string().optional(),
+  FROM_EMAIL: z.string().email().optional(),
+  FROM_NAME: z.string().optional(),
+  
+  // SMS
+  AFRICASTALKING_API_KEY: z.string().optional(),
+  AFRICASTALKING_USERNAME: z.string().optional(),
+  
+  // URLs
+  APP_URL: z.string().url().optional(),
+  FRONTEND_URL: z.string().url().optional(),
 });
 
 export const env = envSchema.parse(process.env);
