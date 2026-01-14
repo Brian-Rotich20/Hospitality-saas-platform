@@ -1,0 +1,491 @@
+You are a senior software architect. Design a complete, production-ready system architecture for a hospitality marketplace SaaS platform with the following specifications:
+
+## PRODUCT OVERVIEW
+A two-sided marketplace connecting hospitality service providers (event venues, caterers, accommodations) with customers in Kenya. The platform handles bookings, payments with escrow, vendor payouts, and multi-role user management.
+
+## BUSINESS MODEL
+- Transaction-based: Platform takes 10-15% commission per booking
+- Payment flow: Customer pays → Platform holds in escrow → Service completed → Vendor receives payout (85-90%)
+- Tax handling: 16% VAT on all transactions, 5% withholding tax on vendor payouts
+
+## USER ROLES & KEY WORKFLOWS
+
+### 1. CUSTOMER WORKFLOW
+- Browse/search listings by location, category, date, price
+- View listing details (photos, pricing, availability, reviews)
+- Request booking or instant book
+- Pay via M-Pesa or card (Flutterwave/Stripe)
+- Receive booking confirmation
+- View booking status in dashboard
+- Leave reviews after service completion
+
+### 2. VENDOR WORKFLOW
+- Register and submit KYC documents (business registration, tax PIN, ID)
+- Wait for admin approval
+- Create listings (photos, pricing, availability calendar, amenities)
+- Receive booking requests
+- Accept/decline bookings within 24 hours
+- Manage availability calendar (block dates)
+- Receive automatic payouts after service completion
+- View earnings dashboard and analytics
+
+### 3. ADMIN WORKFLOW
+- Review and approve/reject vendor applications
+- Monitor all transactions and booking activity
+- Handle disputes and refunds
+- View platform analytics (GTV, revenue, user growth)
+- Manually trigger payouts if needed
+- Generate tax/compliance reports
+
+## TECHNICAL STACK (ALREADY CHOSEN)
+- **Backend:** Node.js with Fastify framework
+- **Database:** PostgreSQL with Drizzle ORM
+- **Cache:** Redis for sessions, rate limiting, frequently accessed data
+- **Authentication:** JWT (JSON Web Tokens)
+- **Validation:** Zod for request/response schemas
+- **Queue:** Bull/BullMQ for background jobs
+- **Storage:** AWS S3 or Cloudinary for photos/documents
+- **Payments:** Flutterwave (M-Pesa + cards) for Kenya market
+- **Frontend:** Next.js 14+ (React) - mobile-first responsive web app
+- **API Documentation:** Swagger UI
+- **Monitoring:** Sentry (errors), CloudWatch or Datadog (logs/metrics)
+
+## CORE FEATURES (MVP SCOPE)
+
+### Authentication & User Management
+- Email/password registration with SMS OTP verification
+- JWT-based authentication
+- Role-based access control (customer, vendor, admin)
+- Password reset flow
+
+### Vendor Onboarding
+- Multi-step registration form
+- KYC document upload (business cert, tax PIN, national ID)
+- Bank account / M-Pesa details for payouts
+- Admin approval workflow (manual review)
+
+### Listing Management
+- Create/edit listings with photos (max 5 for MVP)
+- Set pricing (base price per booking)
+- Manage availability calendar (available/blocked dates)
+- Set capacity, location, amenities
+- Publish/unpublish listings
+
+### Booking System
+- Search and filter listings
+- Check real-time availability
+- Request-to-book flow (vendor must approve within 24hrs)
+- Booking statuses: pending → confirmed → completed → paid_out
+- Email/SMS notifications for all booking events
+
+### Payment Processing
+- M-Pesa STK Push integration (Safaricom Daraja API via Flutterwave)
+- Payment held in escrow until service completion
+- Automatic calculation: base price + platform fee (15%) + VAT (16%)
+- Payment callback webhook handling
+- Receipt generation (PDF)
+- Refund processing for cancellations
+
+### Payout System
+- Automated weekly payouts to vendors
+- Calculate vendor amount: total - platform fee - VAT - withholding tax
+- Payout to M-Pesa or bank account
+- Minimum payout threshold (KES 1,000)
+- Payout history and tracking
+- Failed payout retry mechanism
+
+### Order/Transaction Management
+- Vendor dashboard: view bookings, accept/decline, mark completed
+- Customer dashboard: active bookings, booking history
+- Admin panel: transaction monitoring, reconciliation
+
+### Notifications
+- Email: booking confirmations, payment receipts, reminders
+- SMS: critical updates (booking confirmed, payment received)
+- In-app notifications (Phase 2)
+
+## NON-FUNCTIONAL REQUIREMENTS
+
+### Performance
+- API response time < 500ms (p95)
+- Page load time < 3 seconds on 3G networks
+- Support 1,000+ concurrent users
+- Database query optimization with proper indexing
+- Implement caching strategy (Redis) for:
+  - User sessions
+  - Frequently accessed listings
+  - Availability calendars
+  - Search results (5-minute TTL)
+
+### Scalability
+- Horizontal scaling for API servers (stateless design)
+- Database read replicas for query load distribution
+- Queue-based architecture for background jobs:
+  - Email/SMS sending
+  - Payout processing
+  - Report generation
+  - Notification delivery
+- CDN for static assets (images, CSS, JS)
+
+### Security
+- HTTPS/TLS everywhere
+- JWT token expiration and refresh mechanism
+- Password hashing (bcrypt with salt rounds 10-12)
+- Rate limiting on authentication endpoints (5 attempts/minute)
+- API rate limiting (100 requests/minute per user)
+- Input validation and sanitization (Zod schemas)
+- SQL injection prevention (Drizzle ORM parameterized queries)
+- CORS configuration
+- Secure file upload validation (file type, size limits)
+- PCI DSS compliance for payment handling
+- Webhook signature verification
+
+### Reliability
+- 99.5% uptime SLA
+- Database automated backups (daily full, hourly incremental)
+- Point-in-time recovery capability
+- Graceful error handling with proper HTTP status codes
+- Circuit breaker pattern for external API calls
+- Retry logic with exponential backoff for failed operations
+- Health check endpoints
+
+### Monitoring & Observability
+- Error tracking: Sentry
+- Application logs: Structured JSON logs to CloudWatch/Datadog
+- Metrics: Request rates, response times, error rates, business KPIs
+- Alerting: Critical errors, high error rates, payment failures, server downtime
+- Transaction monitoring dashboard
+
+### Data Management
+- Soft deletes for critical data (users, bookings, payments)
+- Data retention policy (7 years for financial records per KRA compliance)
+- Personal data encryption at rest
+- GDPR-like data export capability
+
+## DATABASE DESIGN REQUIREMENTS
+
+### Core Tables Needed
+1. **users**: id, email, phone, password_hash, role, verified, created_at, updated_at
+2. **vendors**: id, user_id, business_name, business_type, status, documents (JSONB), payout_details (JSONB), created_at
+3. **listings**: id, vendor_id, title, description, category, location, pricing, photos (JSONB), amenities (JSONB), status, created_at
+4. **availability**: id, listing_id, date, available (boolean), blocked_reason
+5. **bookings**: id, listing_id, customer_id, start_date, end_date, guests, base_amount, platform_fee, vat, total_amount, status, created_at
+6. **payments**: id, booking_id, amount, method, status, transaction_id, gateway_response (JSONB), created_at
+7. **payouts**: id, vendor_id, amount, status, payout_date, reference, failure_reason
+8. **reviews**: id, booking_id, rating (1-5), comment, photos (JSONB), created_at (Phase 2)
+9. **notifications**: id, user_id, type, title, message, read, created_at
+10. **admin_actions**: id, admin_id, action_type, entity_type, entity_id, details (JSONB), created_at
+
+### Indexing Strategy
+- Primary keys: UUID v4
+- Foreign keys with proper indexes
+- Composite indexes on: (listing_id, date) for availability, (user_id, status) for bookings
+- Full-text search indexes on: listing title, description
+- Partial indexes for active listings, pending bookings
+
+### Relationships
+- users 1:1 vendors (one user can be one vendor)
+- vendors 1:N listings
+- listings 1:N bookings
+- users (customers) 1:N bookings
+- bookings 1:1 payments
+- bookings 1:1 reviews
+- vendors 1:N payouts
+
+## API DESIGN REQUIREMENTS
+
+### RESTful Endpoints Structure
+/api/auth
+POST /register
+POST /login
+POST /verify-otp
+POST /forgot-password
+POST /reset-password
+/api/users
+GET /me
+PUT /me
+PUT /me/password
+/api/vendors
+POST / (apply as vendor)
+GET /me
+PUT /me
+GET /me/earnings
+GET /me/analytics
+/api/listings
+GET / (search with filters)
+GET /:id
+POST / (vendor creates)
+PUT /:id
+DELETE /:id
+GET /:id/availability
+PUT /:id/availability
+/api/bookings
+POST / (create booking)
+GET / (user's bookings)
+GET /:id
+PUT /:id/accept (vendor)
+PUT /:id/decline (vendor)
+PUT /:id/cancel
+PUT /:id/complete
+/api/payments
+POST /initiate
+POST /callback (webhook)
+GET /:id/status
+POST /:id/refund
+/api/admin
+GET /vendors/pending
+PUT /vendors/:id/approve
+PUT /vendors/:id/reject
+GET /transactions
+GET /analytics
+POST /payouts/:id/trigger
+/api/reviews (Phase 2)
+POST /
+GET /listings/:id/reviews
+PUT /:id/respond
+
+### Response Format Standardization
+```json
+{
+  "success": true,
+  "data": {...},
+  "message": "Operation successful",
+  "timestamp": "2025-01-06T12:00:00Z"
+}
+
+// Error format
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "Email is required",
+    "details": {...}
+  },
+  "timestamp": "2025-01-06T12:00:00Z"
+}
+```
+
+## EXTERNAL INTEGRATIONS
+
+### Payment Gateway (Flutterwave)
+- M-Pesa STK Push for customer payments
+- Payout API for vendor disbursements
+- Webhook for payment status updates
+- Refund API
+- Transaction verification
+
+### SMS Gateway (Africa's Talking or Twilio)
+- OTP delivery for phone verification
+- Booking confirmation messages
+- Payment confirmation alerts
+
+### Email Service (SendGrid or Resend)
+- Transactional emails (bookings, receipts)
+- HTML templates for professional look
+- Delivery tracking
+
+### File Storage (AWS S3 or Cloudinary)
+- Photo uploads with optimization
+- Document storage (KYC documents)
+- CDN integration
+- Signed URLs for private documents
+
+## DEPLOYMENT ARCHITECTURE
+
+### Infrastructure
+- Cloud provider: AWS, Google Cloud, or DigitalOcean
+- Load balancer: AWS ALB or Nginx
+- Application servers: Docker containers (ECS, Kubernetes, or plain VMs)
+- Database: AWS RDS PostgreSQL (Multi-AZ for HA)
+- Cache: AWS ElastiCache Redis (clustered)
+- CDN: Cloudflare
+- CI/CD: GitHub Actions or GitLab CI
+
+### Environments
+- Development: Local Docker Compose
+- Staging: Production-like environment for testing
+- Production: High availability setup
+
+### Scaling Strategy
+- Horizontal scaling: Auto-scaling groups for API servers based on CPU/memory
+- Database: Read replicas for read-heavy operations
+- Redis: Cluster mode for high availability
+- Queue workers: Scale based on queue depth
+
+## BACKGROUND JOBS ARCHITECTURE
+
+### Job Types & Processing
+1. **Email Queue**: Send booking confirmations, receipts, reminders (priority: high)
+2. **SMS Queue**: Send critical notifications (priority: critical)
+3. **Payout Queue**: Process weekly vendor payouts (scheduled: every Monday)
+4. **Notification Queue**: In-app notification delivery (priority: medium)
+5. **Report Generation**: Daily/weekly reports for admin (scheduled)
+6. **Data Cleanup**: Archive old data, remove soft-deleted records (scheduled: weekly)
+
+### Queue Configuration
+- Retry logic: 3 attempts with exponential backoff
+- Dead letter queue for failed jobs
+- Job timeout: 5 minutes for payouts, 30 seconds for emails
+- Concurrency: 5 workers for email, 2 workers for payouts
+
+## BUSINESS LOGIC RULES
+
+### Booking Rules
+- Minimum booking lead time: 24 hours in advance
+- Vendor must respond to booking requests within 24 hours
+- Auto-decline if vendor doesn't respond within 24 hours
+- Service completion: 24 hours after end_date, booking marked as completed
+- Payout eligibility: 48 hours after service completion
+
+### Pricing Calculation
+Base Price: Set by vendor (e.g., KES 50,000)
+Platform Fee: 15% of base price (KES 7,500)
+Subtotal: KES 57,500
+VAT (16%): KES 9,200
+Total Customer Pays: KES 66,700
+Vendor Receives:
+Base Price: KES 50,000
+Less Platform Fee (15%): -KES 7,500
+Less Withholding Tax (5% of base): -KES 2,500
+Net Payout to Vendor: KES 40,000
+### Cancellation Policy (MVP - Simple)
+- Customer cancels >48hrs before: 80% refund
+- Customer cancels 24-48hrs before: 50% refund
+- Customer cancels <24hrs before: No refund
+- Vendor cancels: Full refund to customer + penalty flag
+
+## ERROR HANDLING STRATEGY
+
+### Payment Failures
+- Retry STK push 2 times with 30-second delay
+- If failed: Show error, allow customer to retry or change payment method
+- Log all payment attempts for reconciliation
+
+### Payout Failures
+- Retry 3 times over 24 hours
+- If failed: Mark payout as failed, notify admin, queue for manual review
+- Send email to vendor explaining delay
+
+### Booking Conflicts
+- Double-booking prevention: Row-level locking when creating bookings
+- Real-time availability check before payment
+- Optimistic locking for availability updates
+
+## KENYA-SPECIFIC CONSIDERATIONS
+
+### Localization
+- Currency: Kenyan Shillings (KES) throughout
+- Phone number format: +254 or 0 prefix validation
+- Date/time: East Africa Time (EAT, UTC+3)
+- Language: English (primary), Swahili support (Phase 2)
+
+### Compliance
+- KRA tax compliance: 16% VAT, 5% withholding tax
+- eTIMS integration for invoicing (Phase 2)
+- Data protection: Kenya Data Protection Act compliance
+- Business licensing: Verify vendor business registration
+
+### Mobile-First Design
+- Assume 3G/4G connectivity (not 5G)
+- Optimize for budget Android phones (2GB RAM)
+- Lightweight assets (images <200KB)
+- Progressive enhancement (works without JavaScript for core features)
+
+## SYSTEM DESIGN DELIVERABLES REQUESTED
+
+Please provide the following:
+
+1. **High-Level Architecture Diagram**
+   - Client layer (web app)
+   - Load balancer
+   - Application servers
+   - Database (primary + replicas)
+   - Cache layer (Redis)
+   - Queue system
+   - External services
+   - Monitoring stack
+
+2. **Database Schema Diagram (ERD)**
+   - All tables with columns and data types
+   - Primary keys, foreign keys
+   - Indexes
+   - Relationships with cardinality
+
+3. **API Request Flow Diagram**
+   - Complete booking flow (customer selects listing → payment → confirmation)
+   - Authentication flow
+   - Payout flow (booking completed → vendor payout)
+
+4. **Sequence Diagram for Critical Flows**
+   - Customer booking + payment flow
+   - Vendor payout processing flow
+   - Webhook handling flow
+
+5. **Deployment Architecture Diagram**
+   - AWS/Cloud infrastructure setup
+   - Load balancing strategy
+   - Auto-scaling configuration
+   - Database replication
+   - CDN setup
+
+6. **Microservices Breakdown (Future Phase)**
+   - How to split monolith into microservices
+   - Service boundaries (Auth, User, Listing, Booking, Payment, Notification services)
+   - Inter-service communication (REST vs Events)
+
+7. **Caching Strategy**
+   - What to cache (listings, availability, sessions)
+   - Cache invalidation rules
+   - TTL for different data types
+
+8. **Data Flow Diagrams**
+   - How data moves through the system
+   - Synchronous vs asynchronous operations
+
+9. **Security Architecture**
+   - Authentication and authorization flow
+   - API security measures
+   - Data encryption points
+
+10. **Scalability & Performance Strategy**
+    - Bottleneck identification
+    - Scaling approach for 10x, 100x traffic
+    - Database optimization techniques
+
+## ADDITIONAL CONTEXT
+
+### Current Stage
+- MVP development (Week 1-12)
+- Budget: $3,000-$6,000 for initial build
+- Target: Launch with 10 vendors, 100 bookings in first 3 months
+- Geographic focus: Nairobi, Kenya initially
+
+### Future Phases (Post-MVP)
+- Phase 2 (Month 4-6): Reviews, in-app messaging, advanced search, card payments
+- Phase 3 (Month 7+): Mobile apps (iOS/Android), multi-language, dynamic pricing, loyalty program
+
+### Technical Constraints
+- Must work on 3G networks
+- Must support low-end Android devices
+- Must handle intermittent connectivity
+- Budget-conscious hosting (<$200/month initially)
+
+## OUTPUT FORMAT
+
+Please structure your system design as follows:
+
+1. Executive Summary (2-3 paragraphs)
+2. Architecture Overview with diagram
+3. Component Breakdown (detailed explanation of each component)
+4. Database Design with ERD
+5. API Design patterns
+6. Critical Flow Diagrams (booking, payment, payout)
+7. Scalability & Performance Analysis
+8. Security Considerations
+9. Deployment Strategy
+10. Monitoring & Observability
+11. Cost Estimation (infrastructure)
+12. Risk Analysis & Mitigation
+13. Future Considerations
+
+Use Mermaid diagrams where possible for visual representation. Explain trade-offs and design decisions clearly. Focus on production-ready, battle-tested patterns suitable for a payment-heavy marketplace platform.

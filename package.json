@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "fastify-type-provider-zod": "^6.1.0"
+  }
+}
