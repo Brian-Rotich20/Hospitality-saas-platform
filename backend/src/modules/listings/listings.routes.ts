@@ -1,18 +1,7 @@
 import { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import { ListingController } from './listings.controller';
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { 
-  createListingSchema, 
-  updateListingSchema,
-  publishListingSchema,
-  searchListingsSchema 
-} from './listings.schema';
 
 const listingController = new ListingController();
-const listingParamsSchema = z.object({
-  id: z.coerce.number().int().positive(),
-});
 
 export async function listingRoutes(fastify: FastifyInstance) {
   // Public routes
@@ -20,7 +9,6 @@ export async function listingRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Listings'],
       description: 'Search and browse listings',
-      querystring: searchListingsSchema,
     },
   }, listingController.searchListings.bind(listingController));
 
@@ -49,7 +37,6 @@ export async function listingRoutes(fastify: FastifyInstance) {
   fastify.post('/', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: createListingSchema,
       tags: ['Listings'],
       description: 'Create new listing',
     },
@@ -63,24 +50,21 @@ export async function listingRoutes(fastify: FastifyInstance) {
     },
   }, listingController.getMyListings.bind(listingController));
 
-  fastify.put('/:id/status', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: publishListingSchema,
-      tags: ['Listings'],
-      description: 'Publish or pause listing',
-    },
-  }, listingController.updateListingStatus.bind(listingController));
-
   fastify.put('/:id', {
     preHandler: [fastify.authenticate],
     schema: {
-      params: listingParamsSchema,
-      body: updateListingSchema,
       tags: ['Listings'],
       description: 'Update listing',
     },
   }, listingController.updateListing.bind(listingController));
+
+  fastify.put('/:id/status', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['Listings'],
+      description: 'Publish or pause listing',
+    },
+  }, listingController.updateListingStatus.bind(listingController));
 
   fastify.delete('/:id', {
     preHandler: [fastify.authenticate],
