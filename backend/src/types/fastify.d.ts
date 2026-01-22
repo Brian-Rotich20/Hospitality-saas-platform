@@ -25,6 +25,7 @@ declare module 'fastify' {
       id?: string;
       role?: string;
       email?: string;
+      role: 'customer' | 'vendor' | 'admin';
       [key: string]: any;
     };
   }
