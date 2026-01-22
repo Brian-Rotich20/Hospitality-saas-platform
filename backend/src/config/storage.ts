@@ -14,12 +14,18 @@ export const s3Client = env.STORAGE_PROVIDER === 's3' && env.AWS_ACCESS_KEY_ID
   : null;
 
 // Cloudinary Configuration
-if (env.STORAGE_PROVIDER === 'cloudinary' && env.CLOUDINARY_CLOUD_NAME) {
+if (
+  env.STORAGE_PROVIDER === 'cloudinary' &&
+  env.CLOUDINARY_CLOUD_NAME &&
+  env.CLOUDINARY_API_KEY &&
+  env.CLOUDINARY_API_SECRET
+) {
   cloudinary.config({
     cloud_name: env.CLOUDINARY_CLOUD_NAME,
     api_key: env.CLOUDINARY_API_KEY,
     api_secret: env.CLOUDINARY_API_SECRET,
   });
 }
+
 
 export { cloudinary };

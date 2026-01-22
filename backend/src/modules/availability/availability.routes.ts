@@ -12,7 +12,7 @@ export async function availabilityRoutes(fastify: FastifyInstance) {
     },
   }, availabilityController.checkAvailability.bind(availabilityController));
 
-  // Public - get calendar
+  // Public - get calendar-
   fastify.get('/listings/:listingId/calendar', {
     schema: {
       tags: ['Availability'],
