@@ -1,5 +1,4 @@
-import 'fastify';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -10,13 +9,11 @@ declare module 'fastify' {
   }
 
   interface FastifyRequest {
-    user: {
+    user?: {
       id?: string;
       role?: string;
       email?: string;
       [key: string]: any;
-    } | undefined;
+    };
   }
 }
-
-export {};
