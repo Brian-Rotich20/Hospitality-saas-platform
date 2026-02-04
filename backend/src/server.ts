@@ -1,5 +1,5 @@
 // ✅ MUST BE FIRST - Load type augmentations before any other imports
-import './types/fastify';
+import './types/fastify.augmentation';
 
 import Fastify from 'fastify';
 import { buildApp } from './app';
