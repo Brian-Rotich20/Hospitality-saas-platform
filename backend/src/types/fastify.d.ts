@@ -1,31 +1,49 @@
-import 'fastify';
+/**
+ * ✅ TYPE AUGMENTATION for Fastify decorators
+ * 
+ * This file MUST be imported before any Fastify usage.
+ * Located in server.ts and app.ts at the TOP of imports.
+ * 
+ * @see server.ts
+ * @see app.ts
+ */
+
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
 declare module 'fastify' {
   interface FastifyInstance {
     /**
-     * Authentication preHandler decorator added in `app.ts` via `fastify.decorate('authenticate', authenticate)`
+     * Authentication middleware decorator
+     * Usage: preHandler: [fastify.authenticate]
      */
-    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void;
+    authenticate(request: FastifyRequest, reply: FastifyReply): Promise<void>;
 
     /**
-     * Admin-check preHandler decorator
+     * Admin role checker middleware decorator
+     * Usage: preHandler: [fastify.requireAdmin]
      */
-    requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void;
+    requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void>;
 
     /**
-     * Vendor-check preHandler decorator
+     * Vendor role checker middleware decorator
+     * Usage: preHandler: [fastify.requireVendor]
      */
-    requireVendor: (request: FastifyRequest, reply: FastifyReply) => Promise<void> | void;
+    requireVendor(request: FastifyRequest, reply: FastifyReply): Promise<void>;
+
+    /**
+     * Database instance
+     */
+    db: any;
   }
 
-  // Optionally type `request.user` populated by `@fastify/jwt`
+  /**
+   * Augmented FastifyRequest with user property
+   */
   interface FastifyRequest {
     user?: {
       id?: string;
       role?: string;
       email?: string;
-      role: 'customer' | 'vendor' | 'admin';
       [key: string]: any;
     };
   }
