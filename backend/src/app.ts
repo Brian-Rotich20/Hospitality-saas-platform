@@ -13,7 +13,7 @@ import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.route
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
 import { uploadRoutes } from './modules/upload/upload.routes';
 import { listingRoutes } from './modules/listings/listings.routes';
-import { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { availabilityRoutes } from './modules/availability/availability.routes';
 import { bookingRoutes } from './modules/bookings/bookings.routes';
 import { payoutRoutes, payoutAdminRoutes } from './modules/payouts/payouts.routes';
@@ -23,6 +23,9 @@ export async function buildApp() {
   const fastify = Fastify({
     logger: true,
   }).withTypeProvider<ZodTypeProvider>();
+
+  fastify.setValidatorCompiler(validatorCompiler);
+  fastify.setSerializerCompiler(serializerCompiler);
 
   // Register plugins
   await fastify.register(cors, {
