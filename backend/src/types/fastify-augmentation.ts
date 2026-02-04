@@ -9,7 +9,7 @@ declare module 'fastify' {
   }
 
   interface FastifyRequest {
-    user?: {
+    user: {
       id?: string;
       role?: string;
       email?: string;
@@ -17,3 +17,6 @@ declare module 'fastify' {
     };
   }
 }
+
+// This ensures the file is treated as a module and gets compiled
+export {};

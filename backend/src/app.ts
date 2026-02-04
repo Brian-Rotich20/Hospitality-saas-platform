@@ -1,5 +1,5 @@
 // ✅ CRITICAL: Load type augmentations FIRST (must be before FastifyInstance usage)
-
+import './types/fastify-augmentation';
 import { db } from './config/database';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
