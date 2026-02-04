@@ -18,3 +18,5 @@ declare module 'fastify' {
     } | undefined;
   }
 }
+
+export {};
