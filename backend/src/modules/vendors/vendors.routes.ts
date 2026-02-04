@@ -7,7 +7,6 @@ import {
   updateVendorSchema,
   vendorReviewSchema,
 } from './vendors.schema';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 
 const vendorController = new VendorController();
 
@@ -16,9 +15,7 @@ export async function vendorRoutes(fastify: FastifyInstance) {
   fastify.post('/apply', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: zodToJsonSchema(vendorApplicationSchema, {
-        name: 'VendorApplication',
-      }),
+      body: vendorApplicationSchema,
       tags: ['Vendors'],
       description: 'Apply as a vendor',
     },
@@ -37,9 +34,7 @@ export async function vendorRoutes(fastify: FastifyInstance) {
   fastify.put('/me', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: zodToJsonSchema(updateVendorSchema, {
-        name: 'UpdateVendorProfile',
-      }),
+      body: updateVendorSchema,
       tags: ['Vendors'],
       description: 'Update my vendor profile',
     },
@@ -49,9 +44,7 @@ export async function vendorRoutes(fastify: FastifyInstance) {
   fastify.post('/me/payout-details', {
     preHandler: [fastify.authenticate],
     schema: {
-      body: zodToJsonSchema(payoutDetailsSchema, {
-        name: 'VendorPayoutDetails',
-      }),
+      body: payoutDetailsSchema,
       tags: ['Vendors'],
       description: 'Add/update payout details',
     },
@@ -123,9 +116,7 @@ export async function vendorAdminRoutes(fastify: FastifyInstance) {
   fastify.put('/:vendorId/review', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: {
-      body: zodToJsonSchema(vendorReviewSchema, {
-        name: 'VendorReview',
-      }),
+      body: vendorReviewSchema,
       params: {
         type: 'object',
         required: ['vendorId'],
