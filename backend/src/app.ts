@@ -1,4 +1,3 @@
-// ✅ CRITICAL: Load type augmentations FIRST (must be before FastifyInstance usage)
 import './types/fastify-augmentation';
 import { db } from './config/database';
 import Fastify from 'fastify';
@@ -19,7 +18,6 @@ import { bookingRoutes } from './modules/bookings/bookings.routes';
 import { payoutRoutes, payoutAdminRoutes } from './modules/payouts/payouts.routes';
 
 export async function buildApp() {
-  // ✅ SINGLE Fastify instance with Zod provider
   const fastify = Fastify({
     logger: true,
   }).withTypeProvider<ZodTypeProvider>();
