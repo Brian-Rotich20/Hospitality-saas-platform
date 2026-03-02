@@ -3,7 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, cloudinary } from '../../config/storage';
 import { env, config } from '../../config/env';
 import sharp from 'sharp';
-import { fileTypeFromBuffer } from 'file-type';
+import { fromBuffer  } from 'file-type';
 import { loadEsm } from 'load-esm';
 import { nanoid } from 'nanoid';
 import type { UploadResult, FileMetadata, UploadType } from './upload.types';
