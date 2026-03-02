@@ -4,14 +4,16 @@ import { s3Client, cloudinary } from '../../config/storage';
 import { env, config } from '../../config/env';
 import sharp from 'sharp';
 import { fileTypeFromBuffer } from 'file-type';
+import { loadEsm } from 'load-esm';
 import { nanoid } from 'nanoid';
 import type { UploadResult, FileMetadata, UploadType } from './upload.types';
 
 export class UploadService {
   // Validate file type
   private async validateFile(buffer: Buffer, allowedTypes: string[]): Promise<string> {
-    const fileType = await fileTypeFromBuffer(buffer);
-    
+    const { fromBuffer  } = await loadEsm<typeof import('file-type')>('file-type');
+    const fileType = await fromBuffer(buffer);
+
     if (!fileType) {
       throw new Error('Unable to determine file type');
     }
