@@ -3,28 +3,33 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { s3Client, cloudinary } from '../../config/storage';
 import { env, config } from '../../config/env';
 import sharp from 'sharp';
-import { fromBuffer  } from 'file-type';
-import { loadEsm } from 'load-esm';
+import { fileTypeFromBuffer  } from 'file-type';
 import { nanoid } from 'nanoid';
 import type { UploadResult, FileMetadata, UploadType } from './upload.types';
 
 export class UploadService {
   // Validate file type
-  private async validateFile(buffer: Buffer, allowedTypes: string[]): Promise<string> {
-    const { fromBuffer  } = await loadEsm<typeof import('file-type')>('file-type');
-    const fileType = await fromBuffer(buffer);
+  private async validateFile(
+    buffer: Buffer,
+    allowedTypes: string[]
+  ): Promise<string> {
+
+    const { fileTypeFromBuffer } = await import('file-type');
+
+    const fileType = await fileTypeFromBuffer(buffer);
 
     if (!fileType) {
       throw new Error('Unable to determine file type');
     }
 
     if (!allowedTypes.includes(fileType.mime)) {
-      throw new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`);
+      throw new Error(
+        `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`
+      );
     }
 
-    return fileType.mime;
-  }
-
+  return fileType.mime;
+}
   // Optimize image
   private async optimizeImage(buffer: Buffer, maxWidth: number = 1920): Promise<Buffer> {
     return sharp(buffer)
