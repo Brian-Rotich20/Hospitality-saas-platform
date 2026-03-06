@@ -1,5 +1,6 @@
 import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 // Self-referencing table — supports unlimited parent/child categories
 // e.g. Venues > Wedding Venue > Garden Wedding Venue
@@ -7,12 +8,10 @@ export const categories = pgTable('categories', {
   id:       uuid('id').primaryKey().defaultRandom(),
   name:     varchar('name', { length: 100 }).notNull(),
   slug:     varchar('slug', { length: 100 }).notNull().unique(),
-
-  // Lucide icon name e.g. 'building-2', 'utensils', 'camera'
   icon:     varchar('icon', { length: 50 }),
 
   // null = top-level category
-  parentId: uuid('parent_id'),
+  parentId: uuid('parent_id').references((): AnyPgColumn => categories.id),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
