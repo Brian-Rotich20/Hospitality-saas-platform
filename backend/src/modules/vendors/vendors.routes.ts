@@ -57,7 +57,7 @@ export async function vendorRoutes(fastify: FastifyInstance) {
       tags: ['Vendors'],
       description: 'Upload vendor document',
     },
-  }, vendorController.uploadDocument.bind(vendorController));
+  }, vendorController.uploadVendorDocument.bind(vendorController));
 
   fastify.get('/me/documents', {
     preHandler: [fastify.authenticate],

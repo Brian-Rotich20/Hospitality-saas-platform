@@ -1,401 +1,300 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../config/database';
 import { vendors, vendorDocuments, users } from '../../db/schema';
-import { redis, setCache, getCache, delCache } from '../../config/redis';
+import { setCache, getCache, delCache } from '../../config/redis';
 import { UploadResult } from '../upload/upload.types';
-import type { 
-  VendorApplicationInput, 
-  PayoutDetailsInput, 
+import type {
+  VendorApplicationInput,
+  PayoutDetailsInput,
   UpdateVendorInput,
-  VendorReviewInput 
+  VendorReviewInput,
 } from './vendors.schema';
+import type { VendorFilters } from './vendors.types';
 
 export class VendorService {
-  // Apply as vendor
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  private generateSlug(businessName: string): string {
+    return businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      + '-' + Date.now();
+  }
+
+  private invalidateCache(userId: string, vendorId?: string) {
+    const ops = [delCache(`vendor:profile:${userId}`)];
+    if (vendorId) ops.push(delCache(`vendor:public:${vendorId}`));
+    return Promise.all(ops);
+  }
+
+  // ── Apply as vendor ───────────────────────────────────────────────────────────
+
   async applyAsVendor(userId: string, data: VendorApplicationInput) {
-    // Check if user already has a vendor profile
-    const existingVendor = await db.query.vendors.findFirst({
+    const existing = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
+    if (existing) throw new Error('You already have a vendor application');
 
-    if (existingVendor) {
-      throw new Error('User already has a vendor application');
-    }
-
-    // Update user role to vendor
+    // Update user role immediately
     await db.update(users)
       .set({ role: 'vendor' })
       .where(eq(users.id, userId));
 
-    // Create vendor profile
+    const slug = this.generateSlug(data.businessName);
+
     const [vendor] = await db.insert(vendors).values({
       userId,
-      businessName: data.businessName,
-      businessType: data.businessType,
+      businessName:         data.businessName,
+      slug,
+      description:          data.description,
+      phoneNumber:          data.phoneNumber,
+      whatsappNumber:       data.whatsappNumber,
       businessRegistration: data.businessRegistration,
-      taxPin: data.taxPin,
-      phoneNumber: data.phoneNumber,
-      location: data.location,
-      description: data.description,
-      status: 'pending',
+      taxPin:               data.taxPin,
+      city:                 data.city,
+      county:               data.county,
+      email:                data.email,
+      website:              data.website,
+      status:               'pending',
+      verified:             false,
     }).returning();
 
-    // TODO: Send notification to admin for review
-    // TODO: Send confirmation email to vendor
+    // TODO: Notify admin for review
+    // TODO: Send confirmation email/SMS to vendor
 
     return vendor;
   }
 
-  // Get vendor profile
+  // ── Get my profile ────────────────────────────────────────────────────────────
+
   async getVendorProfile(userId: string) {
     const cacheKey = `vendor:profile:${userId}`;
-    
-    // Check cache first
-    const cached = await getCache(cacheKey);
-    if (cached) {
-      return cached;
-    }
+    const cached   = await getCache(cacheKey);
+    if (cached) return cached;
 
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
       with: {
         documents: true,
         user: {
-          columns: {
-            email: true,
-            phone: true,
-            verified: true,
-          },
+          columns: { email: true, phone: true, verified: true, fullName: true },
         },
       },
     });
 
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
-    }
+    if (!vendor) throw new Error('Vendor profile not found');
 
-    // Cache for 10 minutes
     await setCache(cacheKey, vendor, 600);
-
     return vendor;
   }
 
-  // Update vendor profile
+  // ── Update profile ────────────────────────────────────────────────────────────
+
   async updateVendorProfile(userId: string, data: UpdateVendorInput) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
+    if (!vendor) throw new Error('Vendor profile not found');
 
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
+    // Regenerate slug only if businessName changed
+    const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
+    if (data.businessName) {
+      updateData.slug = this.generateSlug(data.businessName);
     }
 
-    const [updatedVendor] = await db.update(vendors)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(vendors.id, vendor.id))
-      .returning();
-
-    // Invalidate cache
-    await delCache(`vendor:profile:${userId}`);
-
-    return updatedVendor;
-  }
-
-  // Add payout details
-  async addPayoutDetails(userId: string, data: PayoutDetailsInput) {
-    const vendor = await db.query.vendors.findFirst({
-      where: eq(vendors.userId, userId),
-    });
-
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
-    }
-
-    const updateData: any = {
-      payoutMethod: data.payoutMethod,
-      updatedAt: new Date(),
-    };
-
-    if (data.payoutMethod === 'mpesa') {
-      updateData.mpesaNumber = data.mpesaNumber;
-    } else if (data.payoutMethod === 'bank') {
-      updateData.bankAccountName = data.bankAccountName;
-      updateData.bankAccountNumber = data.bankAccountNumber;
-      updateData.bankName = data.bankName;
-    }
-
-    const [updatedVendor] = await db.update(vendors)
+    const [updated] = await db.update(vendors)
       .set(updateData)
       .where(eq(vendors.id, vendor.id))
       .returning();
 
-    // Invalidate cache
-    await delCache(`vendor:profile:${userId}`);
-
-    return updatedVendor;
+    await this.invalidateCache(userId, vendor.id);
+    return updated;
   }
 
-  // Upload vendor document
-  async uploadDocument(
-    userId: string, 
-    documentType: string, 
-    documentUrl: string, 
-    fileName: string,
-    fileSize: string
-  ) {
+  // ── Payout details ────────────────────────────────────────────────────────────
+
+  async addPayoutDetails(userId: string, data: PayoutDetailsInput) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
+    if (!vendor) throw new Error('Vendor profile not found');
 
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
+    const updateData: Record<string, any> = {
+      payoutMethod: data.payoutMethod,
+      updatedAt:    new Date(),
+    };
+
+    if (data.payoutMethod === 'mpesa') {
+      updateData.mpesaNumber = data.mpesaNumber;
+    } else {
+      updateData.bankAccountName   = data.bankAccountName;
+      updateData.bankAccountNumber = data.bankAccountNumber;
+      updateData.bankName          = data.bankName;
     }
 
-    // Check if document type already exists
-    const existingDoc = await db.query.vendorDocuments.findFirst({
+    const [updated] = await db.update(vendors)
+      .set(updateData)
+      .where(eq(vendors.id, vendor.id))
+      .returning();
+
+    await this.invalidateCache(userId);
+    return updated;
+  }
+
+  // ── Documents ─────────────────────────────────────────────────────────────────
+
+  async uploadVendorDocument(userId: string, documentType: string, uploadResult: UploadResult) {
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.userId, userId),
+    });
+    if (!vendor) throw new Error('Vendor profile not found');
+
+    const existing = await db.query.vendorDocuments.findFirst({
       where: and(
         eq(vendorDocuments.vendorId, vendor.id),
-        eq(vendorDocuments.documentType, documentType)
+        eq(vendorDocuments.documentType, documentType),
       ),
     });
 
-    if (existingDoc) {
-      // Update existing document
-      const [updatedDoc] = await db.update(vendorDocuments)
+    if (existing) {
+      const [updated] = await db.update(vendorDocuments)
         .set({
-          documentUrl,
-          fileName,
-          fileSize,
-          uploadedAt: new Date(),
+          documentUrl: uploadResult.url,
+          fileName:    uploadResult.fileName,
+          fileSize:    uploadResult.fileSize.toString(),
+          uploadedAt:  new Date(),
         })
-        .where(eq(vendorDocuments.id, existingDoc.id))
+        .where(eq(vendorDocuments.id, existing.id))
         .returning();
-
-      return updatedDoc;
+      return updated;
     }
 
-    // Create new document
-    const [document] = await db.insert(vendorDocuments).values({
-      vendorId: vendor.id,
+    const [doc] = await db.insert(vendorDocuments).values({
+      vendorId:    vendor.id,
       documentType,
-      documentUrl,
-      fileName,
-      fileSize,
+      documentUrl: uploadResult.url,
+      fileName:    uploadResult.fileName,
+      fileSize:    uploadResult.fileSize.toString(),
     }).returning();
 
-    // Invalidate cache
-    await delCache(`vendor:profile:${userId}`);
-
-    return document;
+    await this.invalidateCache(userId);
+    return doc;
   }
 
-  // Get vendor documents
   async getVendorDocuments(userId: string) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
+    if (!vendor) throw new Error('Vendor profile not found');
 
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
-    }
-
-    const documents = await db.query.vendorDocuments.findMany({
+    return db.query.vendorDocuments.findMany({
       where: eq(vendorDocuments.vendorId, vendor.id),
     });
-
-    return documents;
   }
 
-  // Admin: Get all pending vendors
-  async getPendingVendors() {
-    const pendingVendors = await db.query.vendors.findMany({
-      where: eq(vendors.status, 'pending'),
+  // ── Public vendor page ────────────────────────────────────────────────────────
+
+  async getPublicVendorProfile(vendorId: string) {
+    const cacheKey = `vendor:public:${vendorId}`;
+    const cached   = await getCache(cacheKey);
+    if (cached) return cached;
+
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.id, vendorId),
       with: {
         user: {
-          columns: {
-            email: true,
-            phone: true,
-            verified: true,
-          },
+          columns: { fullName: true },
         },
+      },
+    });
+
+    if (!vendor || vendor.status !== 'approved') throw new Error('Vendor not found');
+
+    await setCache(cacheKey, vendor, 600);
+    return vendor;
+  }
+
+  // ── Admin ─────────────────────────────────────────────────────────────────────
+
+  async getPendingVendors() {
+    return db.query.vendors.findMany({
+      where: eq(vendors.status, 'pending'),
+      with: {
+        user:      { columns: { email: true, phone: true, verified: true } },
         documents: true,
       },
       orderBy: (vendors, { desc }) => [desc(vendors.createdAt)],
     });
-
-    return pendingVendors;
   }
 
-  // Admin: Get vendor by ID
   async getVendorById(vendorId: string) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
       with: {
-        user: {
-          columns: {
-            email: true,
-            phone: true,
-            verified: true,
-          },
-        },
+        user:      { columns: { email: true, phone: true, verified: true } },
         documents: true,
       },
     });
-
-    if (!vendor) {
-      throw new Error('Vendor not found');
-    }
-
+    if (!vendor) throw new Error('Vendor not found');
     return vendor;
   }
 
-  // Admin: Review vendor application
+  async getAllVendors(filters?: VendorFilters) {
+    const conditions: any[] = [];
+    if (filters?.status) conditions.push(eq(vendors.status, filters.status));
+
+    return db.query.vendors.findMany({
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      with: {
+        user: { columns: { email: true, phone: true } },
+      },
+      limit:   filters?.limit  ?? 50,
+      offset:  filters?.offset ?? 0,
+      orderBy: (vendors, { desc }) => [desc(vendors.createdAt)],
+    });
+  }
+
   async reviewVendorApplication(vendorId: string, adminId: string, data: VendorReviewInput) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
     });
+    if (!vendor)                      throw new Error('Vendor not found');
+    if (vendor.status !== 'pending')  throw new Error('Application has already been reviewed');
 
-    if (!vendor) {
-      throw new Error('Vendor not found');
-    }
-
-    if (vendor.status !== 'pending') {
-      throw new Error('Vendor application has already been reviewed');
-    }
-
-    const [updatedVendor] = await db.update(vendors)
+    const [updated] = await db.update(vendors)
       .set({
-        status: data.status,
+        status:          data.status,
         rejectionReason: data.rejectionReason,
-        approvedBy: data.status === 'approved' ? adminId : null,
-        approvedAt: data.status === 'approved' ? new Date() : null,
-        updatedAt: new Date(),
+        approvedBy:      data.status === 'approved' ? adminId : null,
+        approvedAt:      data.status === 'approved' ? new Date() : null,
+        updatedAt:       new Date(),
       })
       .where(eq(vendors.id, vendorId))
       .returning();
 
-    // Invalidate cache
-    await delCache(`vendor:profile:${vendor.userId}`);
+    await this.invalidateCache(vendor.userId, vendorId);
 
-    // TODO: Send notification email to vendor
-    // TODO: If approved, send welcome email with next steps
-    // TODO: If rejected, send rejection email with reason
-
-    return updatedVendor;
+    // TODO: Send approval/rejection email to vendor
+    return updated;
   }
 
-  // Admin: Get all vendors with filters
-  async getAllVendors(filters?: { status?: string; businessType?: string; limit?: number; offset?: number }) {
-    const conditions = [];
-
-    if (filters?.status) {
-      conditions.push(eq(vendors.status, filters.status as any));
-    }
-
-    if (filters?.businessType) {
-      conditions.push(eq(vendors.businessType, filters.businessType as any));
-    }
-
-    const allVendors = await db.query.vendors.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-      with: {
-        user: {
-          columns: {
-            email: true,
-            phone: true,
-          },
-        },
-      },
-      limit: filters?.limit || 50,
-      offset: filters?.offset || 0,
-      orderBy: (vendors, { desc }) => [desc(vendors.createdAt)],
-    });
-
-    return allVendors;
-  }
-
-  // Admin: Suspend vendor
   async suspendVendor(vendorId: string, reason: string) {
-    const [vendor] = await db.update(vendors)
-      .set({
-        status: 'suspended',
-        rejectionReason: reason,
-        updatedAt: new Date(),
-      })
-      .where(eq(vendors.id, vendorId))
-      .returning();
-
-    if (!vendor) {
-      throw new Error('Vendor not found');
-    }
-
-    // Invalidate cache
-    const vendorProfile = await db.query.vendors.findFirst({
+    const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
     });
-    
-    if (vendorProfile) {
-      await delCache(`vendor:profile:${vendorProfile.userId}`);
-    }
+    if (!vendor) throw new Error('Vendor not found');
 
-    // TODO: Send suspension email to vendor
+    const [updated] = await db.update(vendors)
+      .set({ status: 'suspended', rejectionReason: reason, updatedAt: new Date() })
+      .where(eq(vendors.id, vendorId))
+      .returning();
+
+    await this.invalidateCache(vendor.userId, vendorId);
+
+    // TODO: Send suspension email
     // TODO: Unpublish all vendor listings
-
-    return vendor;
-  }
-  // Add this method to VendorService class
-
-  async uploadVendorDocument(
-    userId: string,
-    documentType: string,
-    uploadResult: UploadResult
-  ): Promise<any> {
-    const vendor = await db.query.vendors.findFirst({
-      where: eq(vendors.userId, userId),
-    });
-
-    if (!vendor) {
-      throw new Error('Vendor profile not found');
-    }
-
-    // Check if document type already exists
-    const existingDoc = await db.query.vendorDocuments.findFirst({
-      where: and(
-        eq(vendorDocuments.vendorId, vendor.id),
-        eq(vendorDocuments.documentType, documentType)
-      ),
-    });
-
-    if (existingDoc) {
-      // Update existing document
-      const [updatedDoc] = await db.update(vendorDocuments)
-        .set({
-          documentUrl: uploadResult.url,
-          fileName: uploadResult.fileName,
-          fileSize: uploadResult.fileSize.toString(),
-          uploadedAt: new Date(),
-        })
-        .where(eq(vendorDocuments.id, existingDoc.id))
-        .returning();
-
-      return updatedDoc;
-    }
-
-    // Create new document
-    const [document] = await db.insert(vendorDocuments).values({
-      vendorId: vendor.id,
-      documentType,
-      documentUrl: uploadResult.url,
-      fileName: uploadResult.fileName,
-      fileSize: uploadResult.fileSize.toString(),
-    }).returning();
-
-    // Invalidate cache
-    await delCache(`vendor:profile:${userId}`);
-
-    return document;
+    return updated;
   }
 }
