@@ -9,6 +9,7 @@ import { categories } from './categories';
 export const productStatusEnum = pgEnum('product_status', [
   'draft',
   'active',
+  'paused',
   'out_of_stock',
   'deleted',
 ]);
