@@ -8,33 +8,27 @@ const variantSchema = z.object({
 });
 
 // ─── Create product ───────────────────────────────────────────────────────────
-export const createProductSchema = z.object({
+const createProductBase = z.object({
   categoryId:      z.string().uuid('Invalid category').optional(),
-  title:           z.string().min(3, 'Title must be at least 3 characters').max(255),
+  title:           z.string().min(3).max(255),
   description:     z.string().min(10).max(3000).optional(),
   price:           z.number().positive('Price must be greater than 0'),
   currency:        z.string().length(3).default('KES'),
   photos:          z.array(z.string().url()).max(10).default([]),
   coverPhoto:      z.string().url().optional(),
-
-  // WhatsApp enquiry — pre-filled message when customer taps button
-  // If not set, defaults to "Hi, I'm interested in {title}"
   whatsappMessage: z.string().max(300).optional(),
-
-  isDigital: z.boolean().default(false),
-
-  // Optional variants — e.g. Small / Medium / Large
-  variants: z.array(variantSchema).max(20).optional(),
-
-  // Inventory — only relevant if trackStock = true
-  trackStock:  z.boolean().default(false),
-  quantity:    z.number().int().min(0).optional(),
-  lowStockAt:  z.number().int().min(0).default(5),
+  isDigital:       z.boolean().default(false),
+  variants:        z.array(variantSchema).max(20).optional(),
+  trackStock:      z.boolean().default(false),
+  quantity:        z.number().int().min(0).optional(),
+  lowStockAt:      z.number().int().min(0).default(5),
 });
 
-// ─── Update product ───────────────────────────────────────────────────────────
-export const updateProductSchema = createProductSchema.partial();
+// Create = base (no refine needed for products)
+export const createProductSchema = createProductBase;
 
+// Update = partial of base
+export const updateProductSchema = createProductBase.partial()
 // ─── Status update ────────────────────────────────────────────────────────────
 export const updateProductStatusSchema = z.object({
   status: z.enum(['draft', 'active', 'paused', 'out_of_stock', 'deleted']),

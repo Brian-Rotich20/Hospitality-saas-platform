@@ -11,7 +11,7 @@ const locationSchema = z.object({
 });
 
 // ─── Create listing ───────────────────────────────────────────────────────────
-export const createListingSchema = z.object({
+ const createListingBase  = z.object({
   // ✅ categoryId — dynamic FK, not hardcoded enum
   categoryId: z.string().uuid('Invalid category'),
 
@@ -40,31 +40,23 @@ export const createListingSchema = z.object({
   minBookingDuration: z.number().int().positive().default(1),
   maxBookingDuration: z.number().int().positive().default(30),
   leadTime:           z.number().int().min(0).default(1),
-}).refine(data => {
-  // range pricing must have both minPrice and maxPrice
-  if (data.pricingType === 'range') {
-    return data.minPrice != null && data.maxPrice != null;
-  }
-  // all other types must have price
-  if (data.pricingType !== 'package') {
-    return data.price != null && data.price > 0;
-  }
-  return true;
-}, {
-  message: 'Price is required for the selected pricing type. Use minPrice + maxPrice for range.',
-  path: ['price'],
-});
+})
 
-// ─── Update listing ───────────────────────────────────────────────────────────
-export const updateListingSchema = createListingSchema.partial().refine(data => {
+// Create WITH refine
+export const createListingSchema = createListingBase.refine(data => {
   if (data.pricingType === 'range') {
     return data.minPrice != null && data.maxPrice != null;
   }
   return true;
-}, {
-  message: 'minPrice and maxPrice are required for range pricing',
-  path: ['minPrice'],
-});
+}, { message: 'minPrice and maxPrice are required for range pricing', path: ['minPrice'] });
+
+// Update = partial of BASE (not the refined schema)
+export const updateListingSchema = createListingBase.partial().refine(data => {
+  if (data.pricingType === 'range') {
+    return data.minPrice != null && data.maxPrice != null;
+  }
+  return true;
+}, { message: 'minPrice and maxPrice are required for range pricing', path: ['minPrice'] });
 
 // ─── Status update ────────────────────────────────────────────────────────────
 export const publishListingSchema = z.object({
