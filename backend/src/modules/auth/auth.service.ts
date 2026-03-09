@@ -1,71 +1,176 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../config/database';
-import { users } from '../../db/schema';
+import { users, vendors } from '../../db/schema';
 import { hashPassword, comparePassword } from '../../utils/password';
-import { signToken } from '../../utils/jwt';
+import { redis } from '../../config/redis';
 import type { RegisterInput, LoginInput } from './auth.schema';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET         = process.env.JWT_SECRET!;
+const ACCESS_TOKEN_TTL   = '15m';
+const REFRESH_TOKEN_TTL  = '7d';
+const REFRESH_TTL_SECS   = 60 * 60 * 24 * 7; // 7 days in seconds for Redis
+
+// ── Token helpers ─────────────────────────────────────────────────────────────
+
+function signAccessToken(payload: object) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+}
+
+function signRefreshToken(payload: object) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+}
+
+function verifyToken(token: string) {
+  return jwt.verify(token, JWT_SECRET) as any;
+}
+
+// ── Safe user object — never expose passwordHash ──────────────────────────────
+
+function safeUser(user: any) {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
 
 export class AuthService {
+
+  // ── Register ──────────────────────────────────────────────────────────────────
+
   async register(data: RegisterInput) {
-    const existingUser = await db.query.users.findFirst({
+    const existing = await db.query.users.findFirst({
       where: eq(users.email, data.email),
     });
-
-    if (existingUser) {
-      throw new Error('User already exists');
-    }
+    if (existing) throw new Error('An account with this email already exists');
 
     const passwordHash = await hashPassword(data.password);
 
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: data.email,
-        phone: data.phone,
-        passwordHash,
-        role: data.role,
-      })
-      .returning({
-        id: users.id,
-        email: users.email,
-        role: users.role,
-      });
-
-    if (!user) {
-      throw new Error("User creation failed");
-    }
-
-    const token = signToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
+    const [user] = await db.insert(users).values({
+      fullName:     data.fullName,
+      email:        data.email,
+      phone:        data.phone,
+      passwordHash,
+      role:         'customer', // always customer on register
+    }).returning({
+      id:       users.id,
+      email:    users.email,
+      fullName: users.fullName,
+      phone:    users.phone,
+      role:     users.role,
     });
 
+    if (!user) throw new Error('Registration failed');
 
-    return { user, token };
+    const tokenPayload = { userId: user.id, email: user.email, role: user.role };
+    const accessToken  = signAccessToken(tokenPayload);
+    const refreshToken = signRefreshToken(tokenPayload);
+
+    // Store refresh token in Redis — keyed by userId so we can revoke all sessions
+    await redis.setex(`refresh:${user.id}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
+
+    return { user, accessToken, refreshToken };
   }
+
+  // ── Login ─────────────────────────────────────────────────────────────────────
 
   async login(data: LoginInput) {
     const user = await db.query.users.findFirst({
       where: eq(users.email, data.email),
     });
 
-    if (!user) {
-      throw new Error('Invalid credentials');
+    // Same error for wrong email or wrong password — prevents user enumeration
+    if (!user) throw new Error('Invalid email or password');
+
+    const valid = await comparePassword(data.password, user.passwordHash);
+    if (!valid)  throw new Error('Invalid email or password');
+
+    // ✅ If vendor, attach vendorId to token so middleware doesn't need a DB call
+    let vendorId: string | undefined;
+    if (user.role === 'vendor') {
+      const vendor = await db.query.vendors.findFirst({
+        where: eq(vendors.userId, user.id),
+        columns: { id: true },
+      });
+      vendorId = vendor?.id;
     }
 
-    const isValidPassword = await comparePassword(data.password, user.passwordHash);
+    const tokenPayload = { userId: user.id, email: user.email, role: user.role, vendorId };
+    const accessToken  = signAccessToken(tokenPayload);
+    const refreshToken = signRefreshToken(tokenPayload);
 
-    if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+    await redis.setex(`refresh:${user.id}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
+
+    return { user: safeUser(user), accessToken, refreshToken };
+  }
+
+  // ── Refresh token ─────────────────────────────────────────────────────────────
+
+  async refresh(refreshToken: string) {
+    let payload: any;
+    try {
+      payload = verifyToken(refreshToken);
+    } catch {
+      throw new Error('Invalid or expired refresh token');
     }
 
-    const token = signToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
+    // Check token is still in Redis (not revoked)
+    const key    = `refresh:${payload.userId}:${refreshToken.slice(-20)}`;
+    const stored = await redis.get(key);
+    if (!stored) throw new Error('Refresh token has been revoked');
+
+    // Rotate — delete old, issue new
+    await redis.del(key);
+
+    // Re-fetch vendorId in case role changed (e.g. after vendor approval)
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, payload.userId),
+      columns: { id: true, email: true, role: true },
     });
+    if (!user) throw new Error('User not found');
 
-    return { user, token };
+    let vendorId: string | undefined;
+    if (user.role === 'vendor') {
+      const vendor = await db.query.vendors.findFirst({
+        where: eq(vendors.userId, user.id),
+        columns: { id: true },
+      });
+      vendorId = vendor?.id;
+    }
+
+    const newPayload      = { userId: user.id, email: user.email, role: user.role, vendorId };
+    const newAccessToken  = signAccessToken(newPayload);
+    const newRefreshToken = signRefreshToken(newPayload);
+
+    await redis.setex(`refresh:${user.id}:${newRefreshToken.slice(-20)}`, REFRESH_TTL_SECS, newRefreshToken);
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────────
+
+  async logout(userId: string, refreshToken: string) {
+    const key = `refresh:${userId}:${refreshToken.slice(-20)}`;
+    await redis.del(key);
+  }
+
+  // ── Logout all devices ────────────────────────────────────────────────────────
+
+  async logoutAll(userId: string) {
+    const keys = await redis.keys(`refresh:${userId}:*`);
+    if (keys.length > 0) await redis.del(...keys);
+  }
+
+  // ── Get current user ──────────────────────────────────────────────────────────
+
+  async getMe(userId: string) {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        id: true, email: true, fullName: true,
+        phone: true, role: true, verified: true,
+        avatarUrl: true, createdAt: true,
+      },
+    });
+    if (!user) throw new Error('User not found');
+    return user;
   }
 }

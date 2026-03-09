@@ -8,6 +8,7 @@ import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import { env } from './config/env';
 import { authRoutes } from './modules/auth/auth.routes';
+import fastifyCookie from '@fastify/cookie';
 import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes';
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
 import { uploadRoutes } from './modules/upload/upload.routes';
@@ -21,6 +22,9 @@ export async function buildApp() {
   const fastify = Fastify({
     logger: true,
   }).withTypeProvider<ZodTypeProvider>();
+
+  const COOKIE_SECRET = process.env.COOKIE_SECRET;
+  if (!COOKIE_SECRET) throw new Error('COOKIE_SECRET env variable is required');
 
   fastify.setValidatorCompiler(validatorCompiler);
   fastify.setSerializerCompiler(serializerCompiler);
@@ -65,6 +69,8 @@ export async function buildApp() {
   await fastify.register(swaggerUI, {
     routePrefix: '/docs',
   });
+
+ await fastify.register(fastifyCookie, { secret: COOKIE_SECRET });
 
   // Decorators
   fastify.decorate('authenticate', authenticate);
