@@ -24,7 +24,7 @@ export interface ListingFilters {
   status?: ListingStatus;
   limit?: number | undefined;
   offset?: number | undefined;
-  sortBy?: 'price' | 'rating' | 'newest' | 'popular';
+  sortBy?: 'price'  | 'newest' | 'popular' | 'undefines';
 }
 
 export interface ListingWithRelations {

@@ -7,3 +7,4 @@ export * from './payments';
 export * from './payouts';
 export * from './categories';
 export * from './products';
+// export * from './uploads';
