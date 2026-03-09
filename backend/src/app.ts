@@ -7,6 +7,7 @@ import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import { env } from './config/env';
+import { redis } from './config/redis';
 import { authRoutes } from './modules/auth/auth.routes';
 import fastifyCookie from '@fastify/cookie';
 import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes';
@@ -70,8 +71,8 @@ export async function buildApp() {
     routePrefix: '/docs',
   });
 
- await fastify.register(fastifyCookie, { secret: COOKIE_SECRET });
-
+  await fastify.register(fastifyCookie, { secret: COOKIE_SECRET });
+  await redis.flushdb(); // Clear Redis cache on startup (for development)
   // Decorators
   fastify.decorate('authenticate', authenticate);
   fastify.decorate('requireAdmin', requireAdmin);
