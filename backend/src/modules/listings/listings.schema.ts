@@ -72,7 +72,7 @@ export const searchListingsSchema = z.object({
   minPrice:     z.coerce.number().positive().optional(),
   maxPrice:     z.coerce.number().positive().optional(),
   minCapacity:  z.coerce.number().int().positive().optional(),
-  sortBy:       z.enum(['price', 'rating', 'newest', 'popular']).default('newest'),
+  sortBy:       z.enum(['price',  'newest', 'popular']).default('newest'),
   limit:        z.coerce.number().int().positive().max(100).default(20),
   offset:       z.coerce.number().int().min(0).default(0),
 });
