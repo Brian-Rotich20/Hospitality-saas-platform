@@ -84,18 +84,7 @@ export class ListingService {
 
     const listing = await db.query.listings.findFirst({
       where: eq(listings.id, listingId),
-      with: includeRelations ? {
-        vendor: {
-          columns: {
-            id: true, businessName: true, slug: true,
-            logo: true, whatsappNumber: true, verified: true,
-            phoneNumber: true, city: true,
-          },
-        },
-        category: {
-          columns: { id: true, name: true, slug: true, icon: true },
-        },
-      } : undefined,
+      with: { vendor: true, category: true },
     });
 
     if (!listing) throw new Error('Listing not found');
@@ -119,18 +108,7 @@ export class ListingService {
 
     const listing = await db.query.listings.findFirst({
       where: eq(listings.slug, slug),
-      with: {
-        vendor: {
-          columns: {
-            id: true, businessName: true, slug: true,
-            logo: true, whatsappNumber: true, phoneNumber: true,
-            verified: true, city: true,
-          },
-        },
-        category: {
-          columns: { id: true, name: true, slug: true, icon: true },
-        },
-      },
+      with: { vendor: true, category: true },
     });
 
     if (!listing || listing.status === 'deleted') throw new Error('Listing not found');
@@ -317,17 +295,7 @@ export class ListingService {
 
     const results = await db.query.listings.findMany({
       where:   and(...conditions),
-      with: {
-        vendor: {
-          columns: {
-            id: true, businessName: true, slug: true,
-            logo: true, verified: true,
-          },
-        },
-        category: {
-          columns: { id: true, name: true, slug: true, icon: true },
-        },
-      },
+      with: { vendor: true, category: true },
       orderBy,
       limit:  filters.limit  ?? 20,
       offset: filters.offset ?? 0,
@@ -345,11 +313,7 @@ export class ListingService {
         eq(listings.vendorId, vendorId),
         sql`${listings.status} != 'deleted'`
       ),
-      with: {
-        category: {
-          columns: { id: true, name: true, slug: true, icon: true },
-        },
-      },
+      with: {category: true },
       orderBy: [desc(listings.updatedAt)],
     });
   }
@@ -363,14 +327,7 @@ export class ListingService {
 
     const featured = await db.query.listings.findMany({
       where: eq(listings.status, 'active'),
-      with: {
-        vendor: {
-          columns: { id: true, businessName: true, slug: true, logo: true, verified: true },
-        },
-        category: {
-          columns: { id: true, name: true, slug: true, icon: true },
-        },
-      },
+     with: { vendor: true, category: true },
       orderBy: [desc(listings.bookingsCount), desc(listings.views)],
       limit,
     });
@@ -389,14 +346,7 @@ export class ListingService {
 
     return db.query.listings.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
-      with: {
-        vendor: {
-          columns: { id: true, businessName: true, status: true },
-        },
-        category: {
-          columns: { id: true, name: true, slug: true },
-        },
-      },
+     with: { vendor: true, category: true },
       limit:   filters?.limit  ?? 50,
       offset:  filters?.offset ?? 0,
       orderBy: [desc(listings.createdAt)],
