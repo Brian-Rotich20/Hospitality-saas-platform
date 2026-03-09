@@ -3,7 +3,9 @@ import { BookingController } from './bookings.controller';
 
 const bookingController = new BookingController();
 
+
 export async function bookingRoutes(fastify: FastifyInstance) {
+  // Customers routes
   fastify.post('/', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -20,6 +22,15 @@ export async function bookingRoutes(fastify: FastifyInstance) {
     },
   }, bookingController.getMyBookings.bind(bookingController));
 
+  fastify.put('/:id/cancel', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      tags: ['Bookings'],
+      description: 'Cancel booking',
+    },
+  }, bookingController.cancelBooking.bind(bookingController));
+
+  // Vendor-specific routes
   fastify.get('/vendor', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -60,11 +71,5 @@ export async function bookingRoutes(fastify: FastifyInstance) {
     },
   }, bookingController.declineBooking.bind(bookingController));
 
-  fastify.put('/:id/cancel', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['Bookings'],
-      description: 'Cancel booking',
-    },
-  }, bookingController.cancelBooking.bind(bookingController));
+  
 }
