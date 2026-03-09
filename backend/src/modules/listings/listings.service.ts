@@ -1,13 +1,41 @@
-import { eq, and, or, gte, lte, ilike, sql, desc, asc } from 'drizzle-orm';
+import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import { db } from '../../config/database';
 import { listings, vendors, categories } from '../../db/schema';
 import { setCache, getCache, delCache } from '../../config/redis';
 import type { ListingFilters } from './listings.types';
 import type { CreateListingInput, UpdateListingInput } from './listings.schema';
 
-export class ListingService {
+// ── Shared SQL fragment for vendor + category joins ───────────────────────────
+const LISTING_SELECT = `
+  l.id, l.vendor_id, l.category_id, l.title, l.slug, l.description,
+  l.location, l.capacity, l.pricing_type, l.price, l.min_price, l.max_price,
+  l.currency, l.photos, l.cover_photo, l.amenities, l.instant_booking,
+  l.min_booking_duration, l.max_booking_duration, l.lead_time,
+  l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
+  json_build_object(
+    'id',            v.id,
+    'businessName',  v.business_name,
+    'slug',          v.slug,
+    'logo',          v.logo,
+    'whatsappNumber',v.whatsapp_number,
+    'phoneNumber',   v.phone_number,
+    'verified',      v.verified
+  ) as vendor,
+  json_build_object(
+    'id',   c.id,
+    'name', c.name,
+    'slug', c.slug,
+    'icon', c.icon
+  ) as category
+`;
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+const LISTING_JOINS = `
+  FROM listings l
+  LEFT JOIN vendors    v ON v.id = l.vendor_id
+  LEFT JOIN categories c ON c.id = l.category_id
+`;
+
+export class ListingService {
 
   private generateSlug(title: string): string {
     return title
@@ -17,12 +45,11 @@ export class ListingService {
       + '-' + Date.now();
   }
 
-  // Validate vendor is approved before any write operation
   private async getApprovedVendor(vendorId: string) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
     });
-    if (!vendor)              throw new Error('Vendor not found');
+    if (!vendor) throw new Error('Vendor not found');
     if (vendor.status !== 'approved') throw new Error('Only approved vendors can manage listings');
     return vendor;
   }
@@ -32,7 +59,6 @@ export class ListingService {
   async createListing(vendorId: string, data: CreateListingInput) {
     await this.getApprovedVendor(vendorId);
 
-    // Validate category exists
     const category = await db.query.categories.findFirst({
       where: eq(categories.id, data.categoryId),
     });
@@ -43,80 +69,74 @@ export class ListingService {
 
     const [listing] = await db.insert(listings).values({
       vendorId,
-      categoryId:  data.categoryId,
-      title:       data.title,
+      categoryId:         data.categoryId,
+      title:              data.title,
       slug,
-      description: data.description,
-
-      // ✅ Structured jsonb location
-      location: data.location,
-
-      capacity: data.capacity,
-
-      // ✅ Flexible pricing
-      pricingType: data.pricingType,
-      price:       data.price?.toString(),
-      minPrice:    data.minPrice?.toString(),
-      maxPrice:    data.maxPrice?.toString(),
-      currency:    data.currency ?? 'KES',
-
-      photos:     data.photos ?? [],
+      description:        data.description,
+      location:           data.location,
+      capacity:           data.capacity,
+      pricingType:        data.pricingType,
+      price:              data.price?.toString(),
+      minPrice:           data.minPrice?.toString(),
+      maxPrice:           data.maxPrice?.toString(),
+      currency:           data.currency ?? 'KES',
+      photos:             data.photos ?? [],
       coverPhoto,
-      amenities:  data.amenities ?? [],
-
+      amenities:          data.amenities ?? [],
       instantBooking:     data.instantBooking     ?? false,
       minBookingDuration: data.minBookingDuration ?? 1,
       maxBookingDuration: data.maxBookingDuration ?? 30,
       leadTime:           data.leadTime           ?? 1,
-
-      status: 'draft',
+      status:             'draft',
     }).returning();
 
     return listing;
   }
 
-  // ── Read: by ID ───────────────────────────────────────────────────────────────
+  // ── Get by ID ─────────────────────────────────────────────────────────────────
 
-  async getListingById(listingId: string, includeRelations = false) {
+  async getListingById(listingId: string, _includeRelations = false) {
     const cacheKey = `listing:${listingId}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    const listing = await db.query.listings.findFirst({
-      where: eq(listings.id, listingId),
-      with: { vendor: true, category: true },
-    });
+    const rows = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE l.id = ${listingId}
+      LIMIT 1
+    `);
 
+    const listing = (rows as any[])[0];
     if (!listing) throw new Error('Listing not found');
 
-    // Increment views async — don't block the response
-    db.update(listings)
-      .set({ views: sql`${listings.views} + 1` })
-      .where(eq(listings.id, listingId))
-      .execute();
+    db.execute(sql`UPDATE listings SET views = views + 1 WHERE id = ${listingId}`)
+      .catch(() => {});
 
     await setCache(cacheKey, listing, 600);
     return listing;
   }
 
-  // ── Read: by slug ─────────────────────────────────────────────────────────────
+  // ── Get by slug ───────────────────────────────────────────────────────────────
 
   async getListingBySlug(slug: string) {
     const cacheKey = `listing:slug:${slug}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    const listing = await db.query.listings.findFirst({
-      where: eq(listings.slug, slug),
-      with: { vendor: true, category: true },
-    });
+    const rows = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE l.slug = ${slug}
+        AND l.status != 'deleted'
+      LIMIT 1
+    `);
 
-    if (!listing || listing.status === 'deleted') throw new Error('Listing not found');
+    const listing = (rows as any[])[0];
+    if (!listing) throw new Error('Listing not found');
 
-    db.update(listings)
-      .set({ views: sql`${listings.views} + 1` })
-      .where(eq(listings.id, listing.id))
-      .execute();
+    db.execute(sql`UPDATE listings SET views = views + 1 WHERE id = ${listing.id}`)
+      .catch(() => {});
 
     await setCache(cacheKey, listing, 600);
     return listing;
@@ -128,10 +148,9 @@ export class ListingService {
     const listing = await db.query.listings.findFirst({
       where: eq(listings.id, listingId),
     });
-    if (!listing)                       throw new Error('Listing not found');
-    if (listing.vendorId !== vendorId)  throw new Error('Unauthorized');
+    if (!listing)                      throw new Error('Listing not found');
+    if (listing.vendorId !== vendorId) throw new Error('Unauthorized');
 
-    // Validate new category if provided
     if (data.categoryId) {
       const cat = await db.query.categories.findFirst({
         where: eq(categories.id, data.categoryId),
@@ -141,24 +160,19 @@ export class ListingService {
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
 
-    if (data.title)       updateData.slug        = this.generateSlug(data.title);
-    if (data.title)       updateData.title       = data.title;
-    if (data.description) updateData.description = data.description;
-    if (data.categoryId)  updateData.categoryId  = data.categoryId;
-    if (data.location)    updateData.location    = data.location;
-    if (data.capacity)    updateData.capacity    = data.capacity;
-    if (data.amenities)   updateData.amenities   = data.amenities;
-    if (data.photos)      updateData.photos      = data.photos;
-    if (data.coverPhoto)  updateData.coverPhoto  = data.coverPhoto;
-
-    // Pricing fields
-    if (data.pricingType) updateData.pricingType = data.pricingType;
-    if (data.price != null)    updateData.price    = data.price.toString();
-    if (data.minPrice != null) updateData.minPrice = data.minPrice.toString();
-    if (data.maxPrice != null) updateData.maxPrice = data.maxPrice.toString();
-    if (data.currency)    updateData.currency    = data.currency;
-
-    // Booking settings
+    if (data.title)            { updateData.slug = this.generateSlug(data.title); updateData.title = data.title; }
+    if (data.description)        updateData.description        = data.description;
+    if (data.categoryId)         updateData.categoryId         = data.categoryId;
+    if (data.location)           updateData.location           = data.location;
+    if (data.capacity)           updateData.capacity           = data.capacity;
+    if (data.amenities)          updateData.amenities          = data.amenities;
+    if (data.photos)             updateData.photos             = data.photos;
+    if (data.coverPhoto)         updateData.coverPhoto         = data.coverPhoto;
+    if (data.pricingType)        updateData.pricingType        = data.pricingType;
+    if (data.price != null)      updateData.price              = data.price.toString();
+    if (data.minPrice != null)   updateData.minPrice           = data.minPrice.toString();
+    if (data.maxPrice != null)   updateData.maxPrice           = data.maxPrice.toString();
+    if (data.currency)           updateData.currency           = data.currency;
     if (data.instantBooking     != null) updateData.instantBooking     = data.instantBooking;
     if (data.minBookingDuration != null) updateData.minBookingDuration = data.minBookingDuration;
     if (data.maxBookingDuration != null) updateData.maxBookingDuration = data.maxBookingDuration;
@@ -171,11 +185,10 @@ export class ListingService {
 
     await delCache(`listing:${listingId}`);
     await delCache(`listing:slug:${listing.slug}`);
-
     return updated;
   }
 
-  // ── Status (publish/pause) ────────────────────────────────────────────────────
+  // ── Status ────────────────────────────────────────────────────────────────────
 
   async updateListingStatus(listingId: string, vendorId: string, status: 'active' | 'paused') {
     const listing = await db.query.listings.findFirst({
@@ -187,8 +200,6 @@ export class ListingService {
     if (status === 'active') {
       if (!listing.photos || (listing.photos as string[]).length === 0)
         throw new Error('Add at least one photo before publishing');
-
-      // Must have a price set for non-package listings
       if (listing.pricingType !== 'package' && !listing.price && !listing.minPrice)
         throw new Error('Set a price before publishing');
     }
@@ -202,7 +213,7 @@ export class ListingService {
     return updated;
   }
 
-  // ── Delete (soft) ─────────────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────────────────
 
   async deleteListing(listingId: string, vendorId: string) {
     const listing = await db.query.listings.findFirst({
@@ -228,128 +239,123 @@ export class ListingService {
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    const conditions: any[] = [eq(listings.status, 'active')];
+    // Build WHERE conditions using sql template literals (safe, parameterized)
+    const conditions = [sql`l.status = 'active'`];
 
-    // ✅ Filter by categoryId (dynamic) or slug
     if (filters.categoryId) {
-      conditions.push(eq(listings.categoryId, filters.categoryId));
+      conditions.push(sql`l.category_id = ${filters.categoryId}`);
     } else if (filters.categorySlug) {
-      // Join via subquery — find category ID from slug first
       const cat = await db.query.categories.findFirst({
         where: eq(categories.slug, filters.categorySlug),
       });
-      if (cat) conditions.push(eq(listings.categoryId, cat.id));
+      if (cat) conditions.push(sql`l.category_id = ${cat.id}`);
     }
 
-    // ✅ Location search inside jsonb field
     if (filters.city) {
-      conditions.push(
-        sql`${listings.location}->>'city' ILIKE ${'%' + filters.city + '%'}`
-      );
+      conditions.push(sql`l.location->>'city' ILIKE ${'%' + filters.city + '%'}`);
     }
 
-    // ✅ Price filter — works across pricingType variants
     if (filters.minPrice) {
-      conditions.push(
-        or(
-          gte(listings.price,    filters.minPrice.toString()),
-          gte(listings.minPrice, filters.minPrice.toString()),
-        )
-      );
+      conditions.push(sql`(l.price >= ${filters.minPrice.toString()} OR l.min_price >= ${filters.minPrice.toString()})`);
     }
+
     if (filters.maxPrice) {
-      conditions.push(
-        or(
-          lte(listings.price,    filters.maxPrice.toString()),
-          lte(listings.maxPrice, filters.maxPrice.toString()),
-        )
-      );
+      conditions.push(sql`(l.price <= ${filters.maxPrice.toString()} OR l.max_price <= ${filters.maxPrice.toString()})`);
     }
 
     if (filters.minCapacity) {
-      conditions.push(gte(listings.capacity, filters.minCapacity));
+      conditions.push(sql`l.capacity >= ${filters.minCapacity}`);
     }
 
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(listings.title,       `%${filters.search}%`),
-          ilike(listings.description, `%${filters.search}%`),
-          sql`${listings.location}->>'city' ILIKE ${'%' + filters.search + '%'}`,
-        )
-      );
+      const term = `%${filters.search}%`;
+      conditions.push(sql`(l.title ILIKE ${term} OR l.description ILIKE ${term} OR l.location->>'city' ILIKE ${term})`);
     }
 
     if (filters.vendorId) {
-      conditions.push(eq(listings.vendorId, filters.vendorId));
+      conditions.push(sql`l.vendor_id = ${filters.vendorId}`);
     }
 
-    // ✅ Sorting
     const orderBy = (() => {
       switch (filters.sortBy) {
-        case 'price':   return [asc(listings.price)];
-        case 'popular': return [desc(listings.bookingsCount), desc(listings.views)];
-        default:        return [desc(listings.createdAt)];  // newest
+        case 'price':   return sql`l.price ASC`;
+        case 'popular': return sql`l.bookings_count DESC, l.views DESC`;
+        default:        return sql`l.created_at DESC`;
       }
     })();
 
-    const results = await db.query.listings.findMany({
-      where:   and(...conditions),
-      with: { vendor: true, category: true },
-      orderBy,
-      limit:  filters.limit  ?? 20,
-      offset: filters.offset ?? 0,
-    });
+    const limit  = filters.limit  ?? 20;
+    const offset = filters.offset ?? 0;
+
+    // Combine all conditions with AND
+    const whereClause = conditions.reduce(
+      (acc, cond) => sql`${acc} AND ${cond}`
+    );
+
+    const results = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE ${whereClause}
+      ORDER BY ${orderBy}
+      LIMIT ${limit} OFFSET ${offset}
+    `);
 
     await setCache(cacheKey, results, 300);
-    return results;
+    return results as any[];
   }
 
-  // ── My listings (vendor dashboard) ───────────────────────────────────────────
+  // ── My listings ───────────────────────────────────────────────────────────────
 
   async getMyListings(vendorId: string) {
-    return db.query.listings.findMany({
-      where: and(
-        eq(listings.vendorId, vendorId),
-        sql`${listings.status} != 'deleted'`
-      ),
-      with: {category: true },
-      orderBy: [desc(listings.updatedAt)],
-    });
+    const rows = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE l.vendor_id = ${vendorId}
+        AND l.status != 'deleted'
+      ORDER BY l.updated_at DESC
+    `);
+    return rows as any[];
   }
 
-  // ── Featured / homepage ───────────────────────────────────────────────────────
+  // ── Featured ──────────────────────────────────────────────────────────────────
 
   async getFeaturedListings(limit = 10) {
     const cacheKey = `listings:featured:${limit}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    const featured = await db.query.listings.findMany({
-      where: eq(listings.status, 'active'),
-     with: { vendor: true, category: true },
-      orderBy: [desc(listings.bookingsCount), desc(listings.views)],
-      limit,
-    });
+    const featured = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE l.status = 'active'
+      ORDER BY l.bookings_count DESC, l.views DESC
+      LIMIT ${limit}
+    `);
 
     await setCache(cacheKey, featured, 3600);
-    return featured;
+    return featured as any[];
   }
 
-  // ── Admin ─────────────────────────────────────────────────────────────────────
+  // ── Admin: all listings ───────────────────────────────────────────────────────
 
   async getAllListings(filters?: ListingFilters) {
-    const conditions: any[] = [];
+    const conditions = [sql`1=1`];
 
-    if (filters?.status)   conditions.push(eq(listings.status,   filters.status));
-    if (filters?.vendorId) conditions.push(eq(listings.vendorId, filters.vendorId));
+    if (filters?.status)   conditions.push(sql`l.status = ${filters.status}`);
+    if (filters?.vendorId) conditions.push(sql`l.vendor_id = ${filters.vendorId}`);
 
-    return db.query.listings.findMany({
-      where: conditions.length > 0 ? and(...conditions) : undefined,
-     with: { vendor: true, category: true },
-      limit:   filters?.limit  ?? 50,
-      offset:  filters?.offset ?? 0,
-      orderBy: [desc(listings.createdAt)],
-    });
+    const whereClause = conditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
+    const limit  = filters?.limit  ?? 50;
+    const offset = filters?.offset ?? 0;
+
+    const rows = await db.execute(sql`
+      SELECT ${sql.raw(LISTING_SELECT)}
+      ${sql.raw(LISTING_JOINS)}
+      WHERE ${whereClause}
+      ORDER BY l.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    return rows as any[];
   }
 }
