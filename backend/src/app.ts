@@ -9,6 +9,7 @@ import swaggerUI from '@fastify/swagger-ui';
 import { env } from './config/env';
 import { redis } from './config/redis';
 import fastifyCookie from '@fastify/cookie';
+import { sql } from 'drizzle-orm';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 
 // ── Route imports 
@@ -73,8 +74,13 @@ export async function buildApp() {
   // ── Health check 
   fastify.get('/health', async () => ({
     status: 'ok', timestamp: new Date().toISOString(),
-  
   }));
+
+  fastify.get('/api/dev/reset', async (_, reply) => {
+  await db.execute(sql`ALTER TABLE vendors DROP COLUMN IF EXISTS location`);
+  await db.execute(sql`ALTER TABLE vendors DROP COLUMN IF EXISTS business_type`);
+  return reply.send({ success: true, message: 'Columns dropped' });
+  });
 
   // ── Routes
   await fastify.register(authRoutes,          { prefix: '/api/auth'           });
