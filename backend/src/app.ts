@@ -51,6 +51,23 @@ export async function buildApp() {
   await fastify.register(multipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
   });
+  
+  fastify.get('/api/dev/seed', async (_, reply) => {
+  const { categories } = await import('./db/schema');
+  
+  await db.insert(categories).values([
+    { name: 'Venues',        slug: 'venues',        icon: 'Building2'     },
+    { name: 'Catering',      slug: 'catering',      icon: 'Utensils'      },
+    { name: 'Photography',   slug: 'photography',   icon: 'Camera'        },
+    { name: 'Music & DJ',    slug: 'music',         icon: 'Music'         },
+    { name: 'Décor',         slug: 'decor',         icon: 'Flower2'       },
+    { name: 'Transport',     slug: 'transport',     icon: 'Bus'           },
+    { name: 'Entertainment', slug: 'entertainment', icon: 'MoreHorizontal'},
+    { name: 'Education',     slug: 'education',     icon: 'BookOpen'      },
+  ]).onConflictDoNothing();
+
+  return reply.send({ success: true, message: 'Categories seeded' });
+  });
 
   await fastify.register(swagger, {
     swagger: {
