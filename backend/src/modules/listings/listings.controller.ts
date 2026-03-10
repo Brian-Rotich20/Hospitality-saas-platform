@@ -155,6 +155,7 @@ export class ListingController {
       return reply.code(isValidation ? 422 : 400).send({
         success: false,
         error: isValidation ? error.errors : error.message,
+        cause: error?.cause?.message ?? error?.cause ?? 'no cause',
       });
     }
   }
