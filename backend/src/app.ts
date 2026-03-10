@@ -77,9 +77,8 @@ export async function buildApp() {
   }));
 
   fastify.get('/api/dev/reset', async (_, reply) => {
-  await db.execute(sql`ALTER TABLE vendors DROP COLUMN IF EXISTS location`);
-  await db.execute(sql`ALTER TABLE vendors DROP COLUMN IF EXISTS business_type`);
-  return reply.send({ success: true, message: 'Columns dropped' });
+  await db.execute(sql`ALTER TABLE listings DROP COLUMN IF EXISTS location`);
+  return reply.send({ success: true, message: 'Done' });
   });
 
   // ── Routes
