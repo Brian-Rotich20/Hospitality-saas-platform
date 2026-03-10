@@ -9,7 +9,6 @@ import swaggerUI from '@fastify/swagger-ui';
 import { env } from './config/env';
 import { redis } from './config/redis';
 import fastifyCookie from '@fastify/cookie';
-import { sql } from 'drizzle-orm';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 
 // ── Route imports 
@@ -76,10 +75,7 @@ export async function buildApp() {
     status: 'ok', timestamp: new Date().toISOString(),
   
   }));
-  fastify.get('/api/dev/reset', async (_, reply) => {
-  await db.execute(sql`TRUNCATE TABLE listings, vendors, bookings CASCADE`);
-  return reply.send({ success: true, message: 'Truncated' });
-  });
+
   // ── Routes
   await fastify.register(authRoutes,          { prefix: '/api/auth'           });
   await fastify.register(vendorRoutes,        { prefix: '/api/vendors'        });
