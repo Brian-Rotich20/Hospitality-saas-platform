@@ -10,7 +10,9 @@ import { env } from './config/env';
 import { redis } from './config/redis';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
-
+import { hashPassword } from './utils/password'; // adjust path if different
+import { users } from './db/schema'; // adjust path if different
+import { eq } from 'drizzle-orm';
 // ── Route imports 
 import { authRoutes }                        from './modules/auth/auth.routes';
 import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes';
@@ -95,7 +97,51 @@ export async function buildApp() {
     status: 'ok', timestamp: new Date().toISOString(),
   }));
 
+  // Add temporarily to app.ts AFTER all other routes
+// Remove this entire block after creating your admin account
 
+
+  fastify.post('/api/dev/seed-admin', async (req, reply) => {
+    // Only works in non-production AND only if no admin exists yet
+    if (process.env.NODE_ENV === 'production') {
+      return reply.code(403).send({ success: false, error: 'Not available in production' });
+    }
+
+    const { email, password, fullName } = req.body as {
+      email:    string;
+      password: string;
+      fullName: string;
+    };
+
+    if (!email || !password || !fullName) {
+      return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
+    }
+
+    // Check if admin already exists
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (existing) {
+      // If user exists, just promote to admin
+      await db.update(users)
+        .set({ role: 'admin' })
+        .where(eq(users.email, email));
+      return reply.send({ success: true, message: `${email} promoted to admin` });
+    }
+
+    // Create fresh admin account
+    const passwordHash = await hashPassword(password);
+    await db.insert(users).values({
+      fullName,
+      email,
+      passwordHash,
+      role:  'admin',
+      phone: '+254700000000', // placeholder
+    });
+
+    return reply.send({ success: true, message: `Admin account created for ${email}` });
+  });
 
   // ── Routes
   await fastify.register(authRoutes,          { prefix: '/api/auth'           });

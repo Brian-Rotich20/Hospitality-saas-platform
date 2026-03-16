@@ -4,9 +4,7 @@ import { registerSchema, loginSchema } from './auth.schema';
 
 const authService = new AuthService();
 
-// ── Cookie config helper ──────────────────────────────────────────────────────
-// sameSite: 'none' + secure: true required for cross-origin cookies
-// (frontend on Vercel, backend on Render = different domains)
+// ── Cookie config helper
 function refreshCookieOptions() {
   return {
     httpOnly: true,
@@ -19,7 +17,7 @@ function refreshCookieOptions() {
 
 export class AuthController {
 
-  // ── POST /auth/register ───────────────────────────────────────────────────
+  // ── POST /auth/register
   async register(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body   = registerSchema.parse(request.body);
@@ -44,7 +42,7 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/login ──────────────────────────────────────────────────────
+  // ── POST /auth/login 
   async login(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body   = loginSchema.parse(request.body);
@@ -68,7 +66,7 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/refresh ────────────────────────────────────────────────────
+  // ── POST /auth/refresh
   async refresh(request: FastifyRequest, reply: FastifyReply) {
     try {
       // Accept from httpOnly cookie (web) or body (mobile)
@@ -95,7 +93,7 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/logout ─────────────────────────────────────────────────────
+  // ── POST /auth/logout 
   async logout(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
@@ -112,7 +110,7 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/logout-all ─────────────────────────────────────────────────
+  // ── POST /auth/logout-all
   async logoutAll(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
@@ -124,7 +122,7 @@ export class AuthController {
     }
   }
 
-  // ── GET /auth/me ──────────────────────────────────────────────────────────
+  // ── GET /auth/me 
   async getMe(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
