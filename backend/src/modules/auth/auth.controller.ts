@@ -87,10 +87,10 @@ export class AuthController {
       // Rotate cookie
       reply.setCookie('refreshToken', result.refreshToken, {
         httpOnly: true,
-        secure:   process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure:   true,
+        sameSite: 'none',
         maxAge:   60 * 60 * 24 * 7,
-        path:     '/api/auth',
+        path:     '/',
       });
 
       return reply.code(200).send({
