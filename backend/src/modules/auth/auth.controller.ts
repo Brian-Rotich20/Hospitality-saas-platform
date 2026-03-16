@@ -1,25 +1,31 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
-import { registerSchema, loginSchema, refreshSchema } from './auth.schema';
+import { registerSchema, loginSchema } from './auth.schema';
 
 const authService = new AuthService();
 
+// ── Cookie config helper ──────────────────────────────────────────────────────
+// sameSite: 'none' + secure: true required for cross-origin cookies
+// (frontend on Vercel, backend on Render = different domains)
+function refreshCookieOptions() {
+  return {
+    httpOnly: true,
+    secure:   true,          // ✅ always true — Render is always HTTPS
+    sameSite: 'none' as const, // ✅ allows cross-origin (Vercel → Render)
+    maxAge:   60 * 60 * 24 * 7, // 7 days
+    path:     '/',           // ✅ send on ALL paths, not just /api/auth
+  };
+}
+
 export class AuthController {
 
-  // ── POST /auth/register ───────────────────────────────────────────────────────
+  // ── POST /auth/register ───────────────────────────────────────────────────
   async register(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body   = registerSchema.parse(request.body);
       const result = await authService.register(body);
 
-      // ✅ Set refresh token as httpOnly cookie
-      reply.setCookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure:   process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge:   60 * 60 * 24 * 7, // 7 days
-        path:     '/api/auth',       // only sent to auth endpoints
-      });
+      reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
       return reply.code(201).send({
         success: true,
@@ -27,8 +33,6 @@ export class AuthController {
         data: {
           user:        result.user,
           accessToken: result.accessToken,
-          // refreshToken also in cookie — return it for mobile clients
-          refreshToken: result.refreshToken,
         },
       });
     } catch (error: any) {
@@ -40,26 +44,19 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/login ──────────────────────────────────────────────────────────
+  // ── POST /auth/login ──────────────────────────────────────────────────────
   async login(request: FastifyRequest, reply: FastifyReply) {
     try {
       const body   = loginSchema.parse(request.body);
       const result = await authService.login(body);
 
-      reply.setCookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure:   process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge:   60 * 60 * 24 * 7,
-        path:     '/api/auth',
-      });
+      reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
       return reply.code(200).send({
         success: true,
         data: {
-          user:         result.user,
-          accessToken:  result.accessToken,
-          refreshToken: result.refreshToken,
+          user:        result.user,
+          accessToken: result.accessToken,
         },
       });
     } catch (error: any) {
@@ -71,10 +68,10 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/refresh ────────────────────────────────────────────────────────
+  // ── POST /auth/refresh ────────────────────────────────────────────────────
   async refresh(request: FastifyRequest, reply: FastifyReply) {
     try {
-      // Accept from cookie OR body (for mobile clients)
+      // Accept from httpOnly cookie (web) or body (mobile)
       const token = (request.cookies as any)?.refreshToken
         ?? (request.body as any)?.refreshToken;
 
@@ -84,28 +81,21 @@ export class AuthController {
 
       const result = await authService.refresh(token);
 
-      // Rotate cookie
-      reply.setCookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure:   true,
-        sameSite: 'none',
-        maxAge:   60 * 60 * 24 * 7,
-        path:     '/',
-      });
+      // Rotate — issue new cookie
+      reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
       return reply.code(200).send({
         success: true,
-        data: {
-          accessToken:  result.accessToken,
-          refreshToken: result.refreshToken,
-        },
+        data: { accessToken: result.accessToken },
       });
     } catch (error: any) {
+      // Clear invalid cookie
+      reply.clearCookie('refreshToken', { path: '/' });
       return reply.code(401).send({ success: false, error: error.message });
     }
   }
 
-  // ── POST /auth/logout ─────────────────────────────────────────────────────────
+  // ── POST /auth/logout ─────────────────────────────────────────────────────
   async logout(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
@@ -114,7 +104,7 @@ export class AuthController {
 
       if (token) await authService.logout(userId, token);
 
-      reply.clearCookie('refreshToken', { path: '/api/auth' });
+      reply.clearCookie('refreshToken', { path: '/' });
 
       return reply.code(200).send({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
@@ -122,19 +112,19 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/logout-all ─────────────────────────────────────────────────────
+  // ── POST /auth/logout-all ─────────────────────────────────────────────────
   async logoutAll(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
       await authService.logoutAll(userId);
-      reply.clearCookie('refreshToken', { path: '/api/auth' });
+      reply.clearCookie('refreshToken', { path: '/' });
       return reply.code(200).send({ success: true, message: 'Logged out from all devices' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
     }
   }
 
-  // ── GET /auth/me ──────────────────────────────────────────────────────────────
+  // ── GET /auth/me ──────────────────────────────────────────────────────────
   async getMe(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
