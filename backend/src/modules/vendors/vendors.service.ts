@@ -13,7 +13,7 @@ import type { VendorFilters } from './vendors.types';
 
 export class VendorService {
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   private generateSlug(businessName: string): string {
     return businessName
@@ -29,7 +29,7 @@ export class VendorService {
     return Promise.all(ops);
   }
 
-  // ── Apply as vendor ───────────────────────────────────────────────────────────
+  // ── Apply as vendor ───────────────────────────────────────────────────────
 
   async applyAsVendor(userId: string, data: VendorApplicationInput) {
     const existing = await db.query.vendors.findFirst({
@@ -37,10 +37,8 @@ export class VendorService {
     });
     if (existing) throw new Error('You already have a vendor application');
 
-    // Update user role immediately
-    await db.update(users)
-      .set({ role: 'vendor' })
-      .where(eq(users.id, userId));
+    // ✅ DO NOT update user role here — user stays 'customer' until approved
+    // Role is updated to 'vendor' only when admin approves (reviewVendorApplication)
 
     const slug = this.generateSlug(data.businessName);
 
@@ -61,13 +59,10 @@ export class VendorService {
       verified:             false,
     }).returning();
 
-    // TODO: Notify admin for review
-    // TODO: Send confirmation email/SMS to vendor
-
     return vendor;
   }
 
-  // ── Get my profile ────────────────────────────────────────────────────────────
+  // ── Get my profile ────────────────────────────────────────────────────────
 
   async getVendorProfile(userId: string) {
     const cacheKey = `vendor:profile:${userId}`;
@@ -84,13 +79,13 @@ export class VendorService {
       },
     });
 
-    if (!vendor) throw new Error('Vendor profile not found');
+    if (!vendor) throw new Error('Vendor profile not found. Please complete vendor registration first.');
 
     await setCache(cacheKey, vendor, 600);
     return vendor;
   }
 
-  // ── Update profile ────────────────────────────────────────────────────────────
+  // ── Update profile ────────────────────────────────────────────────────────
 
   async updateVendorProfile(userId: string, data: UpdateVendorInput) {
     const vendor = await db.query.vendors.findFirst({
@@ -98,7 +93,6 @@ export class VendorService {
     });
     if (!vendor) throw new Error('Vendor profile not found');
 
-    // Regenerate slug only if businessName changed
     const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
     if (data.businessName) {
       updateData.slug = this.generateSlug(data.businessName);
@@ -113,7 +107,7 @@ export class VendorService {
     return updated;
   }
 
-  // ── Payout details ────────────────────────────────────────────────────────────
+  // ── Payout details ────────────────────────────────────────────────────────
 
   async addPayoutDetails(userId: string, data: PayoutDetailsInput) {
     const vendor = await db.query.vendors.findFirst({
@@ -143,7 +137,7 @@ export class VendorService {
     return updated;
   }
 
-  // ── Documents ─────────────────────────────────────────────────────────────────
+  // ── Documents ─────────────────────────────────────────────────────────────
 
   async uploadVendorDocument(userId: string, documentType: string, uploadResult: UploadResult) {
     const vendor = await db.query.vendors.findFirst({
@@ -194,7 +188,7 @@ export class VendorService {
     });
   }
 
-  // ── Public vendor page ────────────────────────────────────────────────────────
+  // ── Public vendor page ────────────────────────────────────────────────────
 
   async getPublicVendorProfile(vendorId: string) {
     const cacheKey = `vendor:public:${vendorId}`;
@@ -204,9 +198,7 @@ export class VendorService {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
       with: {
-        user: {
-          columns: { fullName: true },
-        },
+        user: { columns: { fullName: true } },
       },
     });
 
@@ -216,13 +208,13 @@ export class VendorService {
     return vendor;
   }
 
-  // ── Admin ─────────────────────────────────────────────────────────────────────
+  // ── Admin: get pending ────────────────────────────────────────────────────
 
   async getPendingVendors() {
     return db.query.vendors.findMany({
       where: eq(vendors.status, 'pending'),
       with: {
-        user:      { columns: { email: true, phone: true, verified: true } },
+        user:      { columns: { email: true, phone: true, fullName: true, verified: true } },
         documents: true,
       },
       orderBy: (vendors, { desc }) => [desc(vendors.createdAt)],
@@ -233,7 +225,7 @@ export class VendorService {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
       with: {
-        user:      { columns: { email: true, phone: true, verified: true } },
+        user:      { columns: { email: true, phone: true, fullName: true, verified: true } },
         documents: true,
       },
     });
@@ -248,7 +240,7 @@ export class VendorService {
     return db.query.vendors.findMany({
       where: conditions.length > 0 ? and(...conditions) : undefined,
       with: {
-        user: { columns: { email: true, phone: true } },
+        user: { columns: { email: true, phone: true, fullName: true } },
       },
       limit:   filters?.limit  ?? 50,
       offset:  filters?.offset ?? 0,
@@ -256,17 +248,19 @@ export class VendorService {
     });
   }
 
+  // ── Admin: review (approve / reject) ─────────────────────────────────────
+
   async reviewVendorApplication(vendorId: string, adminId: string, data: VendorReviewInput) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
     });
-    if (!vendor)                      throw new Error('Vendor not found');
-    if (vendor.status !== 'pending')  throw new Error('Application has already been reviewed');
+    if (!vendor) throw new Error('Vendor not found');
 
+    // ✅ Allow re-review of rejected/suspended vendors too (reactivation)
     const [updated] = await db.update(vendors)
       .set({
         status:          data.status,
-        rejectionReason: data.rejectionReason,
+        rejectionReason: data.rejectionReason ?? null,
         approvedBy:      data.status === 'approved' ? adminId : null,
         approvedAt:      data.status === 'approved' ? new Date() : null,
         updatedAt:       new Date(),
@@ -274,11 +268,22 @@ export class VendorService {
       .where(eq(vendors.id, vendorId))
       .returning();
 
+    // ✅ CRITICAL — update user role to match vendor status
+    // approved  → role: 'vendor'   (can now create listings)
+    // rejected  → role: 'customer' (back to customer)
+    // suspended → role: 'customer' (revoke vendor access)
+    const newUserRole = data.status === 'approved' ? 'vendor' : 'customer';
+    await db.update(users)
+      .set({ role: newUserRole })
+      .where(eq(users.id, vendor.userId));
+
+    // Invalidate cached vendor profile so next login gets fresh token data
     await this.invalidateCache(vendor.userId, vendorId);
 
-    // TODO: Send approval/rejection email to vendor
     return updated;
   }
+
+  // ── Admin: suspend ────────────────────────────────────────────────────────
 
   async suspendVendor(vendorId: string, reason: string) {
     const vendor = await db.query.vendors.findFirst({
@@ -291,10 +296,12 @@ export class VendorService {
       .where(eq(vendors.id, vendorId))
       .returning();
 
-    await this.invalidateCache(vendor.userId, vendorId);
+    // ✅ Revoke vendor role — user loses access to vendor dashboard
+    await db.update(users)
+      .set({ role: 'customer' })
+      .where(eq(users.id, vendor.userId));
 
-    // TODO: Send suspension email
-    // TODO: Unpublish all vendor listings
+    await this.invalidateCache(vendor.userId, vendorId);
     return updated;
   }
 }
