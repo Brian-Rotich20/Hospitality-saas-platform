@@ -1,15 +1,18 @@
 import { FastifyInstance } from 'fastify';
 import { BookingController } from './bookings.controller';
-import { db }               from '../../config/database';
-import { bookings, listings, users } from '../../db/schema';
-import { eq, desc }         from 'drizzle-orm';
+import { eq, desc }          from 'drizzle-orm';
+import { db }                from '../../config/database';
+
+// ✅ Import directly from individual schema files — NOT barrel index
+import { bookings } from '../../db/schema/bookings';
+import { listings } from '../../db/schema/listings';
+import { users }    from '../../db/schema/users';
 
 const bookingController = new BookingController();
 
 export async function bookingRoutes(fastify: FastifyInstance) {
 
   // ── Customer routes ───────────────────────────────────────────────────────
-
   fastify.post('/', {
     preHandler: [fastify.authenticate],
     schema: { tags: ['Bookings'], description: 'Create new booking request' },
@@ -26,7 +29,6 @@ export async function bookingRoutes(fastify: FastifyInstance) {
   }, bookingController.cancelBooking.bind(bookingController));
 
   // ── Vendor routes ─────────────────────────────────────────────────────────
-
   fastify.get('/vendor', {
     preHandler: [fastify.authenticate],
     schema: { tags: ['Bookings'], description: 'Get vendor bookings' },
@@ -54,7 +56,7 @@ export async function bookingRoutes(fastify: FastifyInstance) {
 }
 
 // ── Admin bookings routes ─────────────────────────────────────────────────────
-// Registered separately at prefix /api/admin/bookings in app.ts
+// Registered at prefix /api/admin/bookings in app.ts
 
 export async function bookingAdminRoutes(fastify: FastifyInstance) {
 
@@ -63,7 +65,7 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: {
       tags: ['Admin - Bookings'],
-      description: 'Get all bookings with customer and listing info',
+      description: 'Get all bookings',
       querystring: {
         type: 'object',
         properties: {
@@ -75,11 +77,7 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     try {
-      const { status, limit = 50, offset = 0 } = request.query as {
-        status?: string;
-        limit?:  number;
-        offset?: number;
-      };
+      const { status, limit = 50, offset = 0 } = request.query as any;
 
       const rows = await db
         .select({
@@ -93,14 +91,9 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
           endDate:       bookings.endDate,
           guests:        bookings.guests,
           pricingType:   bookings.pricingType,
-          specialRequests:    bookings.specialRequests,
-          cancellationReason: bookings.cancellationReason,
           createdAt:     bookings.createdAt,
-          updatedAt:     bookings.updatedAt,
-          // Listing
           listingId:     listings.id,
           listingTitle:  listings.title,
-          // Customer
           customerId:    users.id,
           customerEmail: users.email,
           customerName:  users.fullName,
@@ -108,28 +101,25 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
         .from(bookings)
         .leftJoin(listings, eq(listings.id, bookings.listingId))
         .leftJoin(users,    eq(users.id,     bookings.customerId))
-        .where(status ? eq(bookings.status, status as any) : undefined)
+        .where(status ? eq(bookings.status, status) : undefined)
         .limit(Number(limit))
         .offset(Number(offset))
         .orderBy(desc(bookings.createdAt));
 
       const data = rows.map(r => ({
-        id:            r.id,
-        status:        r.status,
-        totalAmount:   r.totalAmount,
-        baseAmount:    r.baseAmount,
-        platformFee:   r.platformFee,
-        currency:      r.currency,
-        startDate:     r.startDate,
-        endDate:       r.endDate,
-        guests:        r.guests,
-        pricingType:   r.pricingType,
-        specialRequests:    r.specialRequests,
-        cancellationReason: r.cancellationReason,
-        createdAt:     r.createdAt,
-        updatedAt:     r.updatedAt,
-        listing:  { id: r.listingId,   title: r.listingTitle  },
-        customer: { id: r.customerId,  email: r.customerEmail, fullName: r.customerName },
+        id:          r.id,
+        status:      r.status,
+        totalAmount: r.totalAmount,
+        baseAmount:  r.baseAmount,
+        platformFee: r.platformFee,
+        currency:    r.currency,
+        startDate:   r.startDate,
+        endDate:     r.endDate,
+        guests:      r.guests,
+        pricingType: r.pricingType,
+        createdAt:   r.createdAt,
+        listing:  { id: r.listingId,  title: r.listingTitle },
+        customer: { id: r.customerId, email: r.customerEmail, fullName: r.customerName },
       }));
 
       return reply.send({ success: true, data, count: data.length });
@@ -141,35 +131,29 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
   // GET /api/admin/bookings/:id
   fastify.get('/:id', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: {
-      tags: ['Admin - Bookings'],
-      description: 'Get single booking details',
-    },
+    schema: { tags: ['Admin - Bookings'], description: 'Get single booking' },
   }, async (request, reply) => {
     try {
       const { id } = request.params as { id: string };
 
       const rows = await db
         .select({
-          id:            bookings.id,
-          status:        bookings.status,
-          totalAmount:   bookings.totalAmount,
-          baseAmount:    bookings.baseAmount,
-          platformFee:   bookings.platformFee,
-          currency:      bookings.currency,
-          startDate:     bookings.startDate,
-          endDate:       bookings.endDate,
-          guests:        bookings.guests,
-          pricingType:   bookings.pricingType,
+          id:                 bookings.id,
+          status:             bookings.status,
+          totalAmount:        bookings.totalAmount,
+          currency:           bookings.currency,
+          startDate:          bookings.startDate,
+          endDate:            bookings.endDate,
+          guests:             bookings.guests,
           specialRequests:    bookings.specialRequests,
           cancellationReason: bookings.cancellationReason,
           declineReason:      bookings.declineReason,
-          createdAt:     bookings.createdAt,
-          listingId:     listings.id,
-          listingTitle:  listings.title,
-          customerId:    users.id,
-          customerEmail: users.email,
-          customerName:  users.fullName,
+          createdAt:          bookings.createdAt,
+          listingId:          listings.id,
+          listingTitle:       listings.title,
+          customerId:         users.id,
+          customerEmail:      users.email,
+          customerName:       users.fullName,
         })
         .from(bookings)
         .leftJoin(listings, eq(listings.id, bookings.listingId))
@@ -186,8 +170,8 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
         success: true,
         data: {
           ...r,
-          listing:  { id: r.listingId,   title: r.listingTitle  },
-          customer: { id: r.customerId,  email: r.customerEmail, fullName: r.customerName },
+          listing:  { id: r.listingId,  title: r.listingTitle  },
+          customer: { id: r.customerId, email: r.customerEmail, fullName: r.customerName },
         },
       });
     } catch (error: any) {
