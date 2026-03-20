@@ -1,7 +1,13 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db }            from '../../config/database';
-import { vendors, vendorDocuments, users } from '../../db/schema';
-import { setCache, getCache, delCache }    from '../../config/redis';
+
+// ✅ Import directly from individual schema files — NOT from '../../db/schema'
+// Barrel imports (index.ts) cause circular dependency issues with Drizzle
+// when schema files reference each other (vendors→users, bookings→listings→users)
+import { vendors, vendorDocuments } from '../../db/schema/vendors';
+import { users }                    from '../../db/schema/users';
+
+import { setCache, getCache, delCache } from '../../config/redis';
 import { UploadResult }  from '../upload/upload.types';
 import type {
   VendorApplicationInput, PayoutDetailsInput,
@@ -25,17 +31,13 @@ export class VendorService {
     return Promise.all(ops);
   }
 
-  // ── Apply as vendor ───────────────────────────────────────────────────────
-
   async applyAsVendor(userId: string, data: VendorApplicationInput) {
     const existing = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
     if (existing) throw new Error('You already have a vendor application');
 
-    // ✅ DO NOT set role here — role is set to 'vendor' only on admin approval
     const slug = this.generateSlug(data.businessName);
-
     const [vendor] = await db.insert(vendors).values({
       userId,
       businessName:         data.businessName,
@@ -56,8 +58,6 @@ export class VendorService {
     return vendor;
   }
 
-  // ── Get my profile ────────────────────────────────────────────────────────
-
   async getVendorProfile(userId: string) {
     const cacheKey = `vendor:profile:${userId}`;
     const cached   = await getCache(cacheKey);
@@ -71,8 +71,6 @@ export class VendorService {
     await setCache(cacheKey, vendor, 600);
     return vendor;
   }
-
-  // ── Update profile ────────────────────────────────────────────────────────
 
   async updateVendorProfile(userId: string, data: UpdateVendorInput) {
     const vendor = await db.query.vendors.findFirst({
@@ -92,16 +90,16 @@ export class VendorService {
     return updated;
   }
 
-  // ── Payout details ────────────────────────────────────────────────────────
-
   async addPayoutDetails(userId: string, data: PayoutDetailsInput) {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.userId, userId),
     });
     if (!vendor) throw new Error('Vendor profile not found');
 
-    const updateData: Record<string, any> = { payoutMethod: data.payoutMethod, updatedAt: new Date() };
-
+    const updateData: Record<string, any> = {
+      payoutMethod: data.payoutMethod,
+      updatedAt:    new Date(),
+    };
     if (data.payoutMethod === 'mpesa') {
       updateData.mpesaNumber = data.mpesaNumber;
     } else {
@@ -119,28 +117,36 @@ export class VendorService {
     return updated;
   }
 
-  // ── Documents ─────────────────────────────────────────────────────────────
-
   async uploadVendorDocument(userId: string, documentType: string, uploadResult: UploadResult) {
     const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
     if (!vendor) throw new Error('Vendor profile not found');
 
     const existing = await db.query.vendorDocuments.findFirst({
-      where: and(eq(vendorDocuments.vendorId, vendor.id), eq(vendorDocuments.documentType, documentType)),
+      where: and(
+        eq(vendorDocuments.vendorId, vendor.id),
+        eq(vendorDocuments.documentType, documentType),
+      ),
     });
 
     if (existing) {
       const [updated] = await db.update(vendorDocuments)
-        .set({ documentUrl: uploadResult.url, fileName: uploadResult.fileName, fileSize: uploadResult.fileSize.toString(), uploadedAt: new Date() })
+        .set({
+          documentUrl: uploadResult.url,
+          fileName:    uploadResult.fileName,
+          fileSize:    uploadResult.fileSize.toString(),
+          uploadedAt:  new Date(),
+        })
         .where(eq(vendorDocuments.id, existing.id))
         .returning();
       return updated;
     }
 
     const [doc] = await db.insert(vendorDocuments).values({
-      vendorId: vendor.id, documentType,
-      documentUrl: uploadResult.url, fileName: uploadResult.fileName,
-      fileSize: uploadResult.fileSize.toString(),
+      vendorId:    vendor.id,
+      documentType,
+      documentUrl: uploadResult.url,
+      fileName:    uploadResult.fileName,
+      fileSize:    uploadResult.fileSize.toString(),
     }).returning();
 
     await this.invalidateCache(userId);
@@ -150,17 +156,19 @@ export class VendorService {
   async getVendorDocuments(userId: string) {
     const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
     if (!vendor) throw new Error('Vendor profile not found');
-    return db.query.vendorDocuments.findMany({ where: eq(vendorDocuments.vendorId, vendor.id) });
+    return db.query.vendorDocuments.findMany({
+      where: eq(vendorDocuments.vendorId, vendor.id),
+    });
   }
-
-  // ── Public profile ────────────────────────────────────────────────────────
 
   async getPublicVendorProfile(vendorId: string) {
     const cacheKey = `vendor:public:${vendorId}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.id, vendorId),
+    });
     if (!vendor || vendor.status !== 'approved') throw new Error('Vendor not found');
 
     await setCache(cacheKey, vendor, 600);
@@ -168,17 +176,22 @@ export class VendorService {
   }
 
   // ── Admin: get pending ────────────────────────────────────────────────────
-  // ✅ Uses JOIN instead of 'with' — avoids Drizzle FST_ERR_VALIDATION bug
 
   async getPendingVendors() {
     const rows = await db
       .select({
-        id: vendors.id, userId: vendors.userId,
-        businessName: vendors.businessName, slug: vendors.slug,
-        description: vendors.description, phoneNumber: vendors.phoneNumber,
-        city: vendors.city, status: vendors.status,
-        verified: vendors.verified, createdAt: vendors.createdAt,
-        userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
+        id:           vendors.id,
+        userId:       vendors.userId,
+        businessName: vendors.businessName,
+        description:  vendors.description,
+        phoneNumber:  vendors.phoneNumber,
+        city:         vendors.city,
+        status:       vendors.status,
+        verified:     vendors.verified,
+        createdAt:    vendors.createdAt,
+        userEmail:    users.email,
+        userPhone:    users.phone,
+        userFullName: users.fullName,
       })
       .from(vendors)
       .leftJoin(users, eq(users.id, vendors.userId))
@@ -186,13 +199,15 @@ export class VendorService {
       .orderBy(desc(vendors.createdAt));
 
     return rows.map(r => ({
-      ...r,
+      id: r.id, userId: r.userId, businessName: r.businessName,
+      description: r.description, phoneNumber: r.phoneNumber,
+      city: r.city, status: r.status, verified: r.verified,
+      createdAt: r.createdAt,
       user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName },
     }));
   }
 
   // ── Admin: get all vendors ────────────────────────────────────────────────
-  // ✅ Uses JOIN instead of 'with' — avoids Drizzle FST_ERR_VALIDATION bug
 
   async getAllVendors(filters?: VendorFilters) {
     const conditions: any[] = [];
@@ -200,12 +215,18 @@ export class VendorService {
 
     const rows = await db
       .select({
-        id: vendors.id, userId: vendors.userId,
-        businessName: vendors.businessName, slug: vendors.slug,
-        description: vendors.description, phoneNumber: vendors.phoneNumber,
-        city: vendors.city, status: vendors.status,
-        verified: vendors.verified, createdAt: vendors.createdAt,
-        userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
+        id:           vendors.id,
+        userId:       vendors.userId,
+        businessName: vendors.businessName,
+        description:  vendors.description,
+        phoneNumber:  vendors.phoneNumber,
+        city:         vendors.city,
+        status:       vendors.status,
+        verified:     vendors.verified,
+        createdAt:    vendors.createdAt,
+        userEmail:    users.email,
+        userPhone:    users.phone,
+        userFullName: users.fullName,
       })
       .from(vendors)
       .leftJoin(users, eq(users.id, vendors.userId))
@@ -215,7 +236,10 @@ export class VendorService {
       .orderBy(desc(vendors.createdAt));
 
     return rows.map(r => ({
-      ...r,
+      id: r.id, userId: r.userId, businessName: r.businessName,
+      description: r.description, phoneNumber: r.phoneNumber,
+      city: r.city, status: r.status, verified: r.verified,
+      createdAt: r.createdAt,
       user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName },
     }));
   }
@@ -225,13 +249,19 @@ export class VendorService {
   async getVendorById(vendorId: string) {
     const rows = await db
       .select({
-        id: vendors.id, userId: vendors.userId,
-        businessName: vendors.businessName, slug: vendors.slug,
-        description: vendors.description, phoneNumber: vendors.phoneNumber,
-        city: vendors.city, status: vendors.status,
-        verified: vendors.verified, createdAt: vendors.createdAt,
+        id:              vendors.id,
+        userId:          vendors.userId,
+        businessName:    vendors.businessName,
+        description:     vendors.description,
+        phoneNumber:     vendors.phoneNumber,
+        city:            vendors.city,
+        status:          vendors.status,
+        verified:        vendors.verified,
         rejectionReason: vendors.rejectionReason,
-        userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
+        createdAt:       vendors.createdAt,
+        userEmail:       users.email,
+        userPhone:       users.phone,
+        userFullName:    users.fullName,
       })
       .from(vendors)
       .leftJoin(users, eq(users.id, vendors.userId))
@@ -240,13 +270,18 @@ export class VendorService {
 
     if (!rows[0]) throw new Error('Vendor not found');
     const r = rows[0];
-    return { ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } };
+    return {
+      ...r,
+      user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName },
+    };
   }
 
-  // ── Admin: review (approve / reject) ─────────────────────────────────────
+  // ── Admin: review ─────────────────────────────────────────────────────────
 
   async reviewVendorApplication(vendorId: string, adminId: string, data: VendorReviewInput) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.id, vendorId),
+    });
     if (!vendor) throw new Error('Vendor not found');
 
     const [updated] = await db.update(vendors)
@@ -260,7 +295,7 @@ export class VendorService {
       .where(eq(vendors.id, vendorId))
       .returning();
 
-    // ✅ Sync user role with vendor status
+    // ✅ Sync user role
     const newRole = data.status === 'approved' ? 'vendor' : 'customer';
     await db.update(users)
       .set({ role: newRole })
@@ -273,7 +308,9 @@ export class VendorService {
   // ── Admin: suspend ────────────────────────────────────────────────────────
 
   async suspendVendor(vendorId: string, reason: string) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
+    const vendor = await db.query.vendors.findFirst({
+      where: eq(vendors.id, vendorId),
+    });
     if (!vendor) throw new Error('Vendor not found');
 
     const [updated] = await db.update(vendors)
@@ -281,7 +318,6 @@ export class VendorService {
       .where(eq(vendors.id, vendorId))
       .returning();
 
-    // ✅ Revoke vendor role
     await db.update(users)
       .set({ role: 'customer' })
       .where(eq(users.id, vendor.userId));
