@@ -1,62 +1,55 @@
+// src/modules/vendors/vendors.schema.ts
+// ✅ Pure Zod schemas — no DB imports, no circular dependencies
+
 import { z } from 'zod';
 
 const kenyanPhone = z.string().regex(/^(\+254|0)[17]\d{8}$/, 'Invalid Kenyan phone number');
-const kraPIN      = z.string().regex(/^[A-Z]\d{9}[A-Z]$/, 'Invalid KRA PIN format (e.g., A123456789Z)');
 
-// ─── Apply as vendor ──────────────────────────────────────────────────────────
 export const vendorApplicationSchema = z.object({
-  businessName:         z.string().min(3, 'Business name must be at least 3 characters').max(255),
-  description:          z.string().min(20, 'Description must be at least 20 characters').max(1000),
+  businessName:         z.string().min(3,  'Business name must be at least 3 characters'),
+  description:          z.string().min(20, 'Description must be at least 20 characters'),
   phoneNumber:          kenyanPhone,
   whatsappNumber:       kenyanPhone.optional(),
-
-  // ✅ No businessType — categories handle this now
   businessRegistration: z.string().optional(),
-  taxPin:               kraPIN.optional(),
-
-  // ✅ city + county replace flat location string
-  city:   z.string().min(2, 'City is required'),
-  county: z.string().optional(),
-
-  email:   z.string().email().optional(),
-  website: z.string().url().optional(),
+  taxPin:               z.string().optional(),
+  city:                 z.string().min(2, 'City is required'),
+  county:               z.string().optional(),
+  email:                z.string().email().optional(),
+  website:              z.string().url().optional().or(z.literal('')),
 });
 
-// ─── Update vendor profile ────────────────────────────────────────────────────
 export const updateVendorSchema = z.object({
-  businessName:   z.string().min(3).max(255).optional(),
-  description:    z.string().min(20).max(1000).optional(),
+  businessName:   z.string().min(3).optional(),
+  description:    z.string().min(20).optional(),
   phoneNumber:    kenyanPhone.optional(),
   whatsappNumber: kenyanPhone.optional(),
-  email:          z.string().email().optional(),
-  website:        z.string().url().optional(),
   city:           z.string().min(2).optional(),
   county:         z.string().optional(),
   logo:           z.string().url().optional(),
-  coverPhoto:     z.string().url().optional(),
+  coverImage:     z.string().url().optional(),
+  website:        z.string().url().optional().or(z.literal('')),
+  socialLinks:    z.record(z.string(), z.string()).optional(),
 });
 
-// ─── Payout details ───────────────────────────────────────────────────────────
-export const payoutDetailsSchema = z.object({
-  payoutMethod:      z.enum(['mpesa', 'bank']),
-  mpesaNumber:       kenyanPhone.optional(),
-  bankAccountName:   z.string().min(3).optional(),
-  bankAccountNumber: z.string().min(5).optional(),
-  bankName:          z.string().min(2).optional(),
-}).refine(data => {
-  if (data.payoutMethod === 'mpesa') return !!data.mpesaNumber;
-  if (data.payoutMethod === 'bank')  return !!data.bankAccountName && !!data.bankAccountNumber && !!data.bankName;
-  return true;
-}, { message: 'Payout details are incomplete for selected method' });
+export const payoutDetailsSchema = z.discriminatedUnion('payoutMethod', [
+  z.object({
+    payoutMethod: z.literal('mpesa'),
+    mpesaNumber:  kenyanPhone,
+  }),
+  z.object({
+    payoutMethod:      z.literal('bank'),
+    bankAccountName:   z.string().min(3),
+    bankAccountNumber: z.string().min(5),
+    bankName:          z.string().min(2),
+  }),
+]);
 
-// ─── Admin review ─────────────────────────────────────────────────────────────
+// ✅ vendorReviewSchema — used by PUT /admin/vendors/:id/review
+// Only status and optional rejectionReason — no DB references
 export const vendorReviewSchema = z.object({
   status:          z.enum(['approved', 'rejected']),
-  rejectionReason: z.string().min(10).optional(),
-}).refine(data => {
-  if (data.status === 'rejected') return !!data.rejectionReason;
-  return true;
-}, { message: 'Rejection reason is required when rejecting a vendor' });
+  rejectionReason: z.string().min(10, 'Please provide a reason (min 10 chars)').optional(),
+});
 
 export type VendorApplicationInput = z.infer<typeof vendorApplicationSchema>;
 export type UpdateVendorInput      = z.infer<typeof updateVendorSchema>;

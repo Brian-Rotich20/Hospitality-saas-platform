@@ -1,17 +1,19 @@
+// src/modules/vendors/vendors.routes.ts
+// ✅ Remove schema: { body: vendorReviewSchema } from the review route
+// Fastify-type-provider-zod fails when schema has circular imports
+// We validate manually in the controller instead
+
 import { FastifyInstance } from 'fastify';
 import { VendorController } from './vendors.controller';
-import z from 'zod';
 import {
   vendorApplicationSchema,
   payoutDetailsSchema,
   updateVendorSchema,
-  vendorReviewSchema,
 } from './vendors.schema';
 
 const vendorController = new VendorController();
 
 export async function vendorRoutes(fastify: FastifyInstance) {
-  // Apply as vendor
   fastify.post('/apply', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -21,16 +23,11 @@ export async function vendorRoutes(fastify: FastifyInstance) {
     },
   }, vendorController.applyAsVendor.bind(vendorController));
 
-  // Get my vendor profile
   fastify.get('/me', {
     preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['Vendors'],
-      description: 'Get my vendor profile',
-    },
+    schema: { tags: ['Vendors'], description: 'Get my vendor profile' },
   }, vendorController.getMyProfile.bind(vendorController));
 
-  // Update vendor profile
   fastify.put('/me', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -40,7 +37,6 @@ export async function vendorRoutes(fastify: FastifyInstance) {
     },
   }, vendorController.updateMyProfile.bind(vendorController));
 
-  // Add/update payout details
   fastify.post('/me/payout-details', {
     preHandler: [fastify.authenticate],
     schema: {
@@ -50,105 +46,53 @@ export async function vendorRoutes(fastify: FastifyInstance) {
     },
   }, vendorController.addPayoutDetails.bind(vendorController));
 
-  // Upload documents (multipart → no body schema)
   fastify.post('/me/documents', {
     preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['Vendors'],
-      description: 'Upload vendor document',
-    },
+    schema: { tags: ['Vendors'], description: 'Upload vendor document' },
   }, vendorController.uploadVendorDocument.bind(vendorController));
 
   fastify.get('/me/documents', {
     preHandler: [fastify.authenticate],
-    schema: {
-      tags: ['Vendors'],
-      description: 'Get my documents',
-    },
+    schema: { tags: ['Vendors'], description: 'Get my documents' },
   }, vendorController.getMyDocuments.bind(vendorController));
 }
 
 export async function vendorAdminRoutes(fastify: FastifyInstance) {
-  // Get pending vendors
   fastify.get('/pending', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: {
-      tags: ['Admin - Vendors'],
-      description: 'Get all pending vendor applications',
-    },
+    schema: { tags: ['Admin - Vendors'], description: 'Get pending vendor applications' },
   }, vendorController.getPendingVendors.bind(vendorController));
 
-  // Get all vendors
   fastify.get('/', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: {
       tags: ['Admin - Vendors'],
-      description: 'Get all vendors with filters',
+      description: 'Get all vendors',
       querystring: {
         type: 'object',
         properties: {
           status: { type: 'string' },
-          businessType: { type: 'string' },
-          limit: { type: 'number' },
+          limit:  { type: 'number' },
           offset: { type: 'number' },
         },
       },
     },
   }, vendorController.getAllVendors.bind(vendorController));
 
-  // Get vendor by ID
   fastify.get('/:vendorId', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: {
-      tags: ['Admin - Vendors'],
-      description: 'Get vendor by ID',
-      params: {
-        type: 'object',
-        required: ['vendorId'],
-        properties: {
-          vendorId: { type: 'string', format: 'uuid' },
-        },
-      },
-    },
+    schema: { tags: ['Admin - Vendors'], description: 'Get vendor by ID' },
   }, vendorController.getVendorById.bind(vendorController));
 
-  // Review vendor
+  // ✅ NO body schema here — validate manually in controller
+  // Removing schema: { body: vendorReviewSchema } fixes FST_ERR_VALIDATION
   fastify.put('/:vendorId/review', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: {
-      body: vendorReviewSchema,
-      params: {
-        type: 'object',
-        required: ['vendorId'],
-        properties: {
-          vendorId: { type: 'string', format: 'uuid' },
-        },
-      },
-      tags: ['Admin - Vendors'],
-      description: 'Approve or reject vendor application',
-    },
+    schema: { tags: ['Admin - Vendors'], description: 'Approve or reject vendor' },
   }, vendorController.reviewVendor.bind(vendorController));
 
-  // Suspend vendor
   fastify.put('/:vendorId/suspend', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: {
-      params: {
-        type: 'object',
-        required: ['vendorId'],
-        properties: {
-          vendorId: { type: 'string', format: 'uuid' },
-        },
-      },
-      body: {
-        type: 'object',
-        required: ['reason'],
-        properties: {
-          reason: { type: 'string', minLength: 10 },
-        },
-      },
-      tags: ['Admin - Vendors'],
-      description: 'Suspend vendor account',
-    },
+    schema: { tags: ['Admin - Vendors'], description: 'Suspend vendor account' },
   }, vendorController.suspendVendor.bind(vendorController));
 }

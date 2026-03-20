@@ -154,20 +154,37 @@ export class VendorController {
     try {
       const { vendorId } = request.params as { vendorId: string };
       const adminId      = (request.user as any).userId;
-      const body         = vendorReviewSchema.parse(request.body);
-      const vendor       = await vendorService.reviewVendorApplication(vendorId, adminId, body);
+
+      // ✅ Manual validation — no Zod schema on route to avoid FST_ERR_VALIDATION
+      const body = request.body as any;
+      const status = body?.status;
+      const rejectionReason = body?.rejectionReason;
+
+      if (!status || !['approved', 'rejected'].includes(status)) {
+        return reply.code(422).send({
+          success: false,
+          error: 'status must be "approved" or "rejected"',
+        });
+      }
+
+      if (status === 'rejected' && (!rejectionReason || rejectionReason.trim().length < 10)) {
+        return reply.code(422).send({
+          success: false,
+          error: 'rejectionReason must be at least 10 characters when rejecting',
+        });
+      }
+
+      const vendor = await vendorService.reviewVendorApplication(
+        vendorId, adminId, { status, rejectionReason }
+      );
 
       return reply.code(200).send({
         success: true,
-        message: `Vendor ${body.status} successfully`,
+        message: `Vendor ${status} successfully`,
         data: vendor,
       });
     } catch (error: any) {
-      const isValidation = error?.name === 'ZodError';
-      return reply.code(isValidation ? 422 : 400).send({
-        success: false,
-        error: isValidation ? error.errors : error.message,
-      });
+      return reply.code(400).send({ success: false, error: error.message });
     }
   }
 
