@@ -1,8 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { ListingService } from './listings.service';
-import { db } from '../../config/database';
-import { vendors } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { db }            from '../../config/database';
+import { eq }            from 'drizzle-orm';
+
+// ✅ Direct import — avoids circular dependency / FST_ERR_VALIDATION
+import { vendors } from '../../db/schema/vendors';
+
 import {
   createListingSchema,
   updateListingSchema,
@@ -24,25 +27,32 @@ async function resolveVendor(userId: string, reply: FastifyReply) {
     });
     return null;
   }
+  if (vendor.status !== 'approved') {
+    reply.code(403).send({
+      success: false,
+      error: 'Your vendor account is pending approval. Please wait for admin review.',
+    });
+    return null;
+  }
   return vendor;
 }
 
 export class ListingController {
 
-  // ── POST /listings ────────────────────────────────────────────────────────────
+  // ── POST /listings ────────────────────────────────────────────────────────
   async createListing(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
       const vendor = await resolveVendor(userId, reply);
       if (!vendor) return;
 
-      const body = createListingSchema.parse(request.body);
+      const body    = createListingSchema.parse(request.body);
       const listing = await listingService.createListing(vendor.id, body);
 
       return reply.code(201).send({
         success: true,
         message: 'Listing created successfully',
-        data: listing,
+        data:    listing,
       });
     } catch (error: any) {
       const isValidation = error?.name === 'ZodError';
@@ -53,10 +63,10 @@ export class ListingController {
     }
   }
 
-  // ── GET /listings/:id ─────────────────────────────────────────────────────────
+  // ── GET /listings/:id ─────────────────────────────────────────────────────
   async getListingById(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string };
+      const { id }  = request.params as { id: string };
       const listing = await listingService.getListingById(id, true);
       return reply.code(200).send({ success: true, data: listing });
     } catch (error: any) {
@@ -64,32 +74,32 @@ export class ListingController {
     }
   }
 
-  // ── GET /listings/slug/:slug ──────────────────────────────────────────────────
+  // ── GET /listings/slug/:slug ──────────────────────────────────────────────
   async getListingBySlug(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { slug } = request.params as { slug: string };
-      const listing = await listingService.getListingBySlug(slug);
+      const listing  = await listingService.getListingBySlug(slug);
       return reply.code(200).send({ success: true, data: listing });
     } catch (error: any) {
       return reply.code(404).send({ success: false, error: error.message });
     }
   }
 
-  // ── PUT /listings/:id ─────────────────────────────────────────────────────────
+  // ── PUT /listings/:id ─────────────────────────────────────────────────────
   async updateListing(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string };
-      const userId = (request.user as any).userId;
-      const vendor = await resolveVendor(userId, reply);
+      const { id }  = request.params as { id: string };
+      const userId  = (request.user as any).userId;
+      const vendor  = await resolveVendor(userId, reply);
       if (!vendor) return;
 
-      const body = updateListingSchema.parse(request.body);
+      const body    = updateListingSchema.parse(request.body);
       const listing = await listingService.updateListing(id, vendor.id, body);
 
       return reply.code(200).send({
         success: true,
         message: 'Listing updated successfully',
-        data: listing,
+        data:    listing,
       });
     } catch (error: any) {
       const isValidation = error?.name === 'ZodError';
@@ -100,21 +110,21 @@ export class ListingController {
     }
   }
 
-  // ── PUT /listings/:id/status
+  // ── PATCH /listings/:id/status (also PUT for compat) ─────────────────────
   async updateListingStatus(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string };
-      const userId = (request.user as any).userId;
-      const vendor = await resolveVendor(userId, reply);
+      const { id }  = request.params as { id: string };
+      const userId  = (request.user as any).userId;
+      const vendor  = await resolveVendor(userId, reply);
       if (!vendor) return;
 
       const { status } = publishListingSchema.parse(request.body);
-      const listing = await listingService.updateListingStatus(id, vendor.id, status);
+      const listing    = await listingService.updateListingStatus(id, vendor.id, status);
 
       return reply.code(200).send({
         success: true,
         message: `Listing ${status === 'active' ? 'published' : 'paused'} successfully`,
-        data: listing,
+        data:    listing,
       });
     } catch (error: any) {
       const isValidation = error?.name === 'ZodError';
@@ -125,12 +135,12 @@ export class ListingController {
     }
   }
 
-  // ── DELETE /listings/:id
+  // ── DELETE /listings/:id ──────────────────────────────────────────────────
   async deleteListing(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { id } = request.params as { id: string };
-      const userId = (request.user as any).userId;
-      const vendor = await resolveVendor(userId, reply);
+      const { id }  = request.params as { id: string };
+      const userId  = (request.user as any).userId;
+      const vendor  = await resolveVendor(userId, reply);
       if (!vendor) return;
 
       await listingService.deleteListing(id, vendor.id);
@@ -140,7 +150,7 @@ export class ListingController {
     }
   }
 
-  // ── GET /listings (public search)
+  // ── GET /listings (public search) ─────────────────────────────────────────
   async searchListings(request: FastifyRequest, reply: FastifyReply) {
     try {
       const filters = searchListingsSchema.parse(request.query);
@@ -160,7 +170,7 @@ export class ListingController {
     }
   }
 
-  // ── GET /listings/me/listings 
+  // ── GET /listings/me ──────────────────────────────────────────────────────
   async getMyListings(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
@@ -174,7 +184,7 @@ export class ListingController {
     }
   }
 
-  // ── GET /listings/featured 
+  // ── GET /listings/featured ────────────────────────────────────────────────
   async getFeaturedListings(request: FastifyRequest, reply: FastifyReply) {
     try {
       const results = await listingService.getFeaturedListings(10);
