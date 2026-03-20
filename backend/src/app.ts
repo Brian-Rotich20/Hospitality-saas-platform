@@ -21,7 +21,7 @@ import { listingRoutes }                     from './modules/listings/listings.r
 import { categoryRoutes }                    from './modules/categories/categories.routes';  // ✅ fixed
 import { productRoutes }                     from './modules/products/products.routes';       // ✅ added
 import { availabilityRoutes }                from './modules/availability/availability.routes';
-import { bookingRoutes }                     from './modules/bookings/bookings.routes';
+import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes';
 import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes';
 
 // ── Middleware 
@@ -153,6 +153,7 @@ export async function buildApp() {
   await fastify.register(productRoutes,       { prefix: '/api/products'       }); 
   await fastify.register(availabilityRoutes,  { prefix: '/api'                });
   await fastify.register(bookingRoutes,       { prefix: '/api/bookings'       });
+  await fastify.register(bookingAdminRoutes,  { prefix: '/api/admin/bookings' });
   await fastify.register(payoutRoutes,        { prefix: '/api/payouts'        });
   await fastify.register(payoutAdminRoutes,   { prefix: '/api/admin/payouts'  });
 
