@@ -14,7 +14,7 @@ export class BookingService {
   private readonly PLATFORM_FEE = 0.15; // 15%
   private readonly VAT           = 0.16; // 16%
 
-  // ── Pricing ───────────────────────────────────────────────────────────────────
+  // ── Pricing 
   // Calculates total based on pricingType — snapshots currency from listing
 
   private calculatePricing(
@@ -67,7 +67,7 @@ export class BookingService {
     };
   }
 
-  // ── Create booking ────────────────────────────────────────────────────────────
+  // ── Create booking
 
   async createBooking(customerId: string, data: CreateBookingInput) {
     const listing = await db.query.listings.findFirst({
@@ -143,7 +143,7 @@ export class BookingService {
     return { ...booking, pricing };
   }
 
-  // ── Get by ID ─────────────────────────────────────────────────────────────────
+  // ── Get by ID 
 
   async getBookingById(bookingId: string, userId: string, userRole: string) {
     const booking = await db.query.bookings.findFirst({
@@ -174,7 +174,7 @@ export class BookingService {
     return booking;
   }
 
-  // ── Accept ────────────────────────────────────────────────────────────────────
+  // ── Accept
 
   async acceptBooking(bookingId: string, vendorId: string) {
     const booking = await db.query.bookings.findFirst({
@@ -200,7 +200,7 @@ export class BookingService {
     return updated;
   }
 
-  // ── Decline ───────────────────────────────────────────────────────────────────
+  // ── Decline
 
   async declineBooking(bookingId: string, vendorId: string, data: DeclineBookingInput) {
     const booking = await db.query.bookings.findFirst({
