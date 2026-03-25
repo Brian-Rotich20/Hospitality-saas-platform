@@ -1,13 +1,37 @@
 // ✅ MUST BE FIRST - Load type augmentations before any other imports
 import './types/fastify-augmentation';
-import Fastify from 'fastify';
+import type { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { buildApp } from './app';
 import { env } from './config/env';
 
+process.on('uncaughtException', (err: Error) => {
+  console.error('[uncaughtException]', err.message, err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('[unhandledRejection]', reason instanceof Error ? reason.stack : reason);
+  process.exit(1);
+});
 
 async function start() {
   try {
     const app = await buildApp();
+
+    app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+      console.error('[fastify:error]', {
+        code:    error.code,
+        message: error.message,
+        stack:   error.stack,
+        url:     request.url,
+        method:  request.method,
+      });
+      reply.code(error.statusCode ?? 500).send({
+        success: false,
+        error:   error.message,
+        code:    error.code,
+      });
+    });
 
     await app.listen({
       port: parseInt(env.PORT),
@@ -18,8 +42,8 @@ async function start() {
     🚀 Server running on http://${env.HOST}:${env.PORT}
     📚 API Docs: http://${env.HOST}:${env.PORT}/docs
     `);
-  } catch (error) {
-    console.error('❌ Error starting server:', error);
+  } catch (err: unknown) {
+    console.error('❌ Error starting server:', err instanceof Error ? err.stack : err);
     process.exit(1);
   }
 }
