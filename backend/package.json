@@ -5,8 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/server.ts",
-    "build": "npm run clean && tsc",
-    "clean": "rimraf dist && rimraf \"src/**/*.{js,d.ts,map}\" --glob",
+    "build": "npm run clean && tsc --noEmitOnError && echo BUILD_DONE",
+    "clean": "rimraf dist",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
