@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/server.ts",
-    "build": "yarn clean && tsc",
+    "build": "npm run clean && tsc",
+    "clean": "rimraf dist && rimraf \"src/**/*.{js,d.ts,map}\" --glob",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -13,8 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "drizzle-kit push --force",
-    "seed:reset": "npm run db:reset && npm run seed",
-    "clean": "rimraf dist && rimraf \"src/**/*.{js,d.ts,map}\" --glob"
+    "seed:reset": "npm run db:reset && npm run seed"
+    
   },
   "keywords": [],
   "author": "",
