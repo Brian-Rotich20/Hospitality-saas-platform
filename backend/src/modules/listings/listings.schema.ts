@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ─── Location ─────────────────────────────────────────────────────────────────
+// ─── Location 
 const locationSchema = z.object({
   address:   z.string().optional(),
   city:      z.string().min(2, 'City is required'),
@@ -10,32 +10,21 @@ const locationSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
 });
 
-// ─── Create listing ───────────────────────────────────────────────────────────
+// ─── Create listing 
  const createListingBase  = z.object({
-  // ✅ categoryId — dynamic FK, not hardcoded enum
   categoryId: z.string().uuid('Invalid category'),
-
   title:       z.string().min(5, 'Title must be at least 5 characters').max(255),
   description: z.string().min(20, 'Description must be at least 20 characters').max(5000),
-
-  // ✅ Structured location object
   location: locationSchema,
-
   capacity: z.number().int().positive().optional(),
-
-  // ✅ Flexible pricing
   pricingType: z.enum(['fixed', 'per_day', 'per_hour', 'per_person', 'range', 'package']),
-  price:       z.number().positive().optional(),     // used for all types except range
-  minPrice:    z.number().positive().optional(),     // range only
-  maxPrice:    z.number().positive().optional(),     // range only
+  price:       z.number().positive().optional(),     
+  minPrice:    z.number().positive().optional(),     
+  maxPrice:    z.number().positive().optional(),     
   currency:    z.string().length(3).default('KES'),
-
   photos:     z.array(z.string().url()).max(20).default([]),
   coverPhoto: z.string().url().optional(),
-
-  // ✅ Amenities optional
   amenities: z.array(z.string()).optional().default([]),
-
   instantBooking:     z.boolean().default(false),
   minBookingDuration: z.number().int().positive().default(1),
   maxBookingDuration: z.number().int().positive().default(30),
@@ -58,7 +47,7 @@ export const updateListingSchema = createListingBase.partial().refine(data => {
   return true;
 }, { message: 'minPrice and maxPrice are required for range pricing', path: ['minPrice'] });
 
-// ─── Status update ────────────────────────────────────────────────────────────
+// ─── Status update 
 export const publishListingSchema = z.object({
   status: z.enum(['active', 'paused']),
 });
