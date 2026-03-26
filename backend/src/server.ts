@@ -1,6 +1,4 @@
-// ✅ MUST BE FIRST - Load type augmentations before any other imports
 import './types/fastify-augmentation';
-import type { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { buildApp } from './app';
 import { env } from './config/env';
 
@@ -17,21 +15,6 @@ process.on('unhandledRejection', (reason: unknown) => {
 async function start() {
   try {
     const app = await buildApp();
-
-    app.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
-      console.error('[fastify:error]', {
-        code:    error.code,
-        message: error.message,
-        stack:   error.stack,
-        url:     request.url,
-        method:  request.method,
-      });
-      reply.code(error.statusCode ?? 500).send({
-        success: false,
-        error:   error.message,
-        code:    error.code,
-      });
-    });
 
     await app.listen({
       port: parseInt(env.PORT),

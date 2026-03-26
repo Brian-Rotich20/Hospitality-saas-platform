@@ -39,7 +39,7 @@ export async function buildApp() {
     } : undefined,
   },
 }).withTypeProvider<ZodTypeProvider>();
-
+  
   const COOKIE_SECRET = process.env.COOKIE_SECRET;
   if (!COOKIE_SECRET) throw new Error('COOKIE_SECRET env variable is required');
 
