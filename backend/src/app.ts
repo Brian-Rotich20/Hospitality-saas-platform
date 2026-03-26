@@ -31,15 +31,9 @@ import { authenticate, requireAdmin, requireVendor } from './middleware/auth.mid
 
 export async function buildApp() {
   const fastify = Fastify({
-  logger: {
-    level: 'info',
-    transport: process.env.NODE_ENV !== 'production' ? {
-      target: 'pino-pretty',
-      options: { colorize: true },
-    } : undefined,
-  },
-}).withTypeProvider<ZodTypeProvider>();
-  
+    logger: true,
+  }).withTypeProvider<ZodTypeProvider>();
+
   const COOKIE_SECRET = process.env.COOKIE_SECRET;
   if (!COOKIE_SECRET) throw new Error('COOKIE_SECRET env variable is required');
 
