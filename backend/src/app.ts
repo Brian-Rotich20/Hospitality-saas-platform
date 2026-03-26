@@ -11,7 +11,9 @@ import { redis } from './config/redis';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { hashPassword } from './utils/password'; // adjust path if different
-import { users } from './db/schema'; // adjust path if different
+import { users }      from './db/schema/users';
+import { categories } from './db/schema/categories'; // at top of file
+
 import { eq } from 'drizzle-orm';
 // ── Route imports 
 import { authRoutes }                        from './modules/auth/auth.routes';
@@ -29,8 +31,14 @@ import { authenticate, requireAdmin, requireVendor } from './middleware/auth.mid
 
 export async function buildApp() {
   const fastify = Fastify({
-    logger: true,
-  }).withTypeProvider<ZodTypeProvider>();
+  logger: {
+    level: 'info',
+    transport: process.env.NODE_ENV !== 'production' ? {
+      target: 'pino-pretty',
+      options: { colorize: true },
+    } : undefined,
+  },
+}).withTypeProvider<ZodTypeProvider>();
 
   const COOKIE_SECRET = process.env.COOKIE_SECRET;
   if (!COOKIE_SECRET) throw new Error('COOKIE_SECRET env variable is required');
@@ -58,8 +66,6 @@ export async function buildApp() {
   });
   
   fastify.get('/api/dev/seed', async (_, reply) => {
-  const { categories } = await import('./db/schema');
-  
   await db.insert(categories).values([
     { name: 'Venues',        slug: 'venues',        icon: 'Building2'     },
     { name: 'Catering',      slug: 'catering',      icon: 'Utensils'      },
