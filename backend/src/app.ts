@@ -92,6 +92,17 @@ export async function buildApp() {
   fastify.decorate('requireVendor', requireVendor);
   fastify.decorate('db',            db);
 
+
+  fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    fastify.log.error({ err: error, url: request.url }, 'Unhandled error');
+    reply.status(error.statusCode ?? 500).send({
+      statusCode: error.statusCode ?? 500,
+      error: 'Internal Server Error',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack }),
+    });
+  });
+
   // ── Health check 
   fastify.get('/health', async () => ({
     status: 'ok', timestamp: new Date().toISOString(),
@@ -156,6 +167,7 @@ export async function buildApp() {
   await fastify.register(bookingAdminRoutes,  { prefix: '/api/admin/bookings' });
   await fastify.register(payoutRoutes,        { prefix: '/api/payouts'        });
   await fastify.register(payoutAdminRoutes,   { prefix: '/api/admin/payouts'  });
+
 
   return fastify;
 }
