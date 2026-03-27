@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { BookingController } from './bookings.controller';
 import { eq, desc }          from 'drizzle-orm';
+import { z }                 from 'zod';
 import { db }                from '../../config/database';
 
 // ✅ Import directly from individual schema files — NOT barrel index
@@ -55,8 +56,14 @@ export async function bookingRoutes(fastify: FastifyInstance) {
   }, bookingController.declineBooking.bind(bookingController));
 }
 
-// ── Admin bookings routes ─────────────────────────────────────────────────────
-// Registered at prefix /api/admin/bookings in app.ts
+// ── Admin bookings routes 
+const bookingQuerySchema = z.object({
+  status: z.enum(['pending', 'confirmed', 'completed', 'cancelled', 'declined', 'disputed']).optional(),
+  limit:  z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+type BookingQuery = z.infer<typeof bookingQuerySchema>;
 
 export async function bookingAdminRoutes(fastify: FastifyInstance) {
 
@@ -66,18 +73,11 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Admin - Bookings'],
       description: 'Get all bookings',
-      querystring: {
-        type: 'object',
-        properties: {
-          status: { type: 'string' },
-          limit:  { type: 'number' },
-          offset: { type: 'number' },
-        },
-      },
+      querystring: bookingQuerySchema,  // ✅ Zod schema
     },
   }, async (request, reply) => {
     try {
-      const { status, limit = 50, offset = 0 } = request.query as any;
+      const { status, limit = 50, offset = 0 } = request.query as BookingQuery; // ✅ fully typed, no cast
 
       const rows = await db
         .select({
@@ -101,9 +101,9 @@ export async function bookingAdminRoutes(fastify: FastifyInstance) {
         .from(bookings)
         .leftJoin(listings, eq(listings.id, bookings.listingId))
         .leftJoin(users,    eq(users.id,     bookings.customerId))
-        .where(status ? eq(bookings.status, status) : undefined)
-        .limit(Number(limit))
-        .offset(Number(offset))
+        .where(status ? eq(bookings.status, status as 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'declined' | 'disputed') : undefined)
+        .limit(limit)        // ✅ already a number via z.coerce
+        .offset(offset)      // ✅ already a number via z.coerce
         .orderBy(desc(bookings.createdAt));
 
       const data = rows.map(r => ({

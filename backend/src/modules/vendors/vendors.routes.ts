@@ -1,9 +1,5 @@
-// src/modules/vendors/vendors.routes.ts
-// ✅ Remove schema: { body: vendorReviewSchema } from the review route
-// Fastify-type-provider-zod fails when schema has circular imports
-// We validate manually in the controller instead
-
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { VendorController } from './vendors.controller';
 import {
   vendorApplicationSchema,
@@ -57,6 +53,13 @@ export async function vendorRoutes(fastify: FastifyInstance) {
   }, vendorController.getMyDocuments.bind(vendorController));
 }
 
+// ── Admin vendor query schema ─────────────────────────────────────────────────
+const vendorQuerySchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
+  limit:  z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
 export async function vendorAdminRoutes(fastify: FastifyInstance) {
   fastify.get('/pending', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
@@ -68,14 +71,7 @@ export async function vendorAdminRoutes(fastify: FastifyInstance) {
     schema: {
       tags: ['Admin - Vendors'],
       description: 'Get all vendors',
-      querystring: {
-        type: 'object',
-        properties: {
-          status: { type: 'string' },
-          limit:  { type: 'number' },
-          offset: { type: 'number' },
-        },
-      },
+      querystring: vendorQuerySchema,   // ✅ Zod schema — not raw JSON Schema
     },
   }, vendorController.getAllVendors.bind(vendorController));
 
@@ -84,8 +80,6 @@ export async function vendorAdminRoutes(fastify: FastifyInstance) {
     schema: { tags: ['Admin - Vendors'], description: 'Get vendor by ID' },
   }, vendorController.getVendorById.bind(vendorController));
 
-  // ✅ NO body schema here — validate manually in controller
-  // Removing schema: { body: vendorReviewSchema } fixes FST_ERR_VALIDATION
   fastify.put('/:vendorId/review', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: { tags: ['Admin - Vendors'], description: 'Approve or reject vendor' },

@@ -1,12 +1,7 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db }            from '../../config/database';
-
-// ✅ Import directly from individual schema files — NOT from '../../db/schema'
-// Barrel imports (index.ts) cause circular dependency issues with Drizzle
-// when schema files reference each other (vendors→users, bookings→listings→users)
 import { vendors, vendorDocuments } from '../../db/schema/vendors';
 import { users }                    from '../../db/schema/users';
-
 import { setCache, getCache, delCache } from '../../config/redis';
 import { UploadResult }  from '../upload/upload.types';
 import type {
