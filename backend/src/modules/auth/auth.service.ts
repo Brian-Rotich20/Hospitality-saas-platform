@@ -114,11 +114,20 @@ export class AuthService {
 
     // Check token is still in Redis (not revoked)
     const key    = `refresh:${payload.userId}:${refreshToken.slice(-20)}`;
-    const stored = await redis.get(key);
+    const luaScript = `
+      local val = redis.call('GET', KEYS[1])
+      if val then
+        redis.call('DEL', KEYS[1])
+        return val
+      end
+        return nil
+      `;
+    const stored = await redis.eval(luaScript, 1,key) as string | null;
     if (!stored) throw new Error('Refresh token has been revoked');
 
-    // Rotate — delete old, issue new
-    await redis.del(key);
+   if(stored !== refreshToken) {
+      throw new Error('Refresh token mismatch');
+    }
 
     // Re-fetch vendorId in case role changed (e.g. after vendor approval)
     const user = await db.query.users.findFirst({
