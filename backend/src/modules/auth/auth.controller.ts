@@ -102,8 +102,12 @@ export class AuthController {
 
       if (token) await authService.logout(userId, token);
 
-      reply.clearCookie('refreshToken', { path: '/' });
-
+      reply.clearCookie('refreshToken', {
+        path:     '/',
+        httpOnly: true,
+        secure:   true,
+        sameSite: 'none',
+      });
       return reply.code(200).send({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
@@ -115,7 +119,12 @@ export class AuthController {
     try {
       const userId = (request.user as any).userId;
       await authService.logoutAll(userId);
-      reply.clearCookie('refreshToken', { path: '/' });
+      reply.clearCookie('refreshToken', {
+        path:     '/',
+        httpOnly: true,
+        secure:   true,
+        sameSite: 'none',
+      });
       return reply.code(200).send({ success: true, message: 'Logged out from all devices' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });

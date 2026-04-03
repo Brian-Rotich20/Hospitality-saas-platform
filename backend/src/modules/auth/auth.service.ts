@@ -5,25 +5,13 @@ import { hashPassword, comparePassword } from '../../utils/password';
 import { redis } from '../../config/redis';
 import type { RegisterInput, LoginInput } from './auth.schema';
 import jwt from 'jsonwebtoken';
+import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt';
 
 const JWT_SECRET         = process.env.JWT_SECRET!;
 const ACCESS_TOKEN_TTL   = '15m';
 const REFRESH_TOKEN_TTL  = '7d';
 const REFRESH_TTL_SECS   = 60 * 60 * 24 * 7; // 7 days in seconds for Redis
 
-// ── Token helpers ─────────────────────────────────────────────────────────────
-
-function signAccessToken(payload: object) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
-}
-
-function signRefreshToken(payload: object) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
-}
-
-function verifyToken(token: string) {
-  return jwt.verify(token, JWT_SECRET) as any;
-}
 
 // ── Safe user object — never expose passwordHash ──────────────────────────────
 
