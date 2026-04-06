@@ -43,7 +43,7 @@ export async function listingRoutes(fastify: FastifyInstance) {
     schema: { tags: ['Listings'], description: 'Update listing' },
   }, listingController.updateListing.bind(listingController));
 
-  fastify.put('/:id/status', {
+  fastify.patch('/:id/status', {
     preHandler: [fastify.authenticate],
     schema: { tags: ['Listings'], description: 'Publish or pause listing' },
   }, listingController.updateListingStatus.bind(listingController));
