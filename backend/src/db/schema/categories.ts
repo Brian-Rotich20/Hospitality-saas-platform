@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, index, text } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
@@ -9,11 +9,10 @@ export const categories = pgTable('categories', {
   name:     varchar('name', { length: 100 }).notNull(),
   slug:     varchar('slug', { length: 100 }).notNull().unique(),
   icon:     varchar('icon', { length: 50 }),
-
-  // null = top-level category
+  imageUrl:  text('image_url'),
   parentId: uuid('parent_id').references((): AnyPgColumn => categories.id),
-
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   parentIdx: index('categories_parent_idx').on(table.parentId),
   slugIdx:   index('categories_slug_idx').on(table.slug),

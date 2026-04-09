@@ -137,6 +137,7 @@ export class CategoryService {
       name:     data.name,
       slug,
       icon:     data.icon,
+      imageUrl: data.imageUrl,
       parentId: data.parentId,
     }).returning();
 
@@ -156,6 +157,7 @@ export class CategoryService {
     if (data.name)     updateData.name     = data.name;
     if (data.icon)     updateData.icon     = data.icon;
     if (data.parentId) updateData.parentId = data.parentId;
+    if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
 
     // Regenerate slug only if name changed and no explicit slug provided
     if (data.name && !data.slug) {
