@@ -1,31 +1,30 @@
-import { eq, and, sql, desc, asc } from 'drizzle-orm';
-import { db } from '../../config/database';
+import { eq, sql } from 'drizzle-orm';
+import { db }       from '../../config/database';
 import { listings, vendors, categories } from '../../db/schema';
-import { setCache, getCache, delCache } from '../../config/redis';
-import type { ListingFilters } from './listings.types';
+import { setCache, getCache, delCache }  from '../../config/redis';
+import type { ListingFilters }           from './listings.types';
 import type { CreateListingInput, UpdateListingInput } from './listings.schema';
 
-// ── Shared SQL fragment for vendor + category joins ───────────────────────────
 const LISTING_SELECT = `
   l.id, l.vendor_id, l.category_id, l.title, l.slug, l.description,
-  l.location, l.capacity, l.pricing_type, l.price, l.min_price, l.max_price,
-  l.currency, l.photos, l.cover_photo, l.amenities, l.instant_booking,
-  l.min_booking_duration, l.max_booking_duration, l.lead_time,
+  l.location, l.pricing_type, l.price, l.min_price, l.max_price,
+  l.currency, l.photos, l.cover_photo,
   l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
   json_build_object(
-    'id',            v.id,
-    'businessName',  v.business_name,
-    'slug',          v.slug,
-    'logo',          v.logo,
-    'whatsappNumber',v.whatsapp_number,
-    'phoneNumber',   v.phone_number,
-    'verified',      v.verified
+    'id',             v.id,
+    'businessName',   v.business_name,
+    'slug',           v.slug,
+    'logo',           v.logo,
+    'whatsappNumber', v.whatsapp_number,
+    'phoneNumber',    v.phone_number,
+    'verified',       v.verified
   ) as vendor,
   json_build_object(
-    'id',   c.id,
-    'name', c.name,
-    'slug', c.slug,
-    'icon', c.icon
+    'id',         c.id,
+    'name',       c.name,
+    'slug',       c.slug,
+    'icon',       c.icon,
+    'parentId',   c.parent_id
   ) as category
 `;
 
@@ -49,13 +48,12 @@ export class ListingService {
     const vendor = await db.query.vendors.findFirst({
       where: eq(vendors.id, vendorId),
     });
-    if (!vendor) throw new Error('Vendor not found');
-    if (vendor.status !== 'approved') throw new Error('Only approved vendors can manage listings');
+    if (!vendor)                        throw new Error('Vendor not found');
+    if (vendor.status !== 'approved')   throw new Error('Only approved vendors can manage listings');
     return vendor;
   }
 
-  // ── Create ───────────────────────────────────────────────────────────────────
-
+  // ── Create ────────────────────────────────────────────────────────────────────
   async createListing(vendorId: string, data: CreateListingInput) {
     await this.getApprovedVendor(vendorId);
 
@@ -69,33 +67,26 @@ export class ListingService {
 
     const [listing] = await db.insert(listings).values({
       vendorId,
-      categoryId:         data.categoryId,
-      title:              data.title,
+      categoryId:  data.categoryId,
+      title:       data.title,
       slug,
-      description:        data.description,
-      location:           data.location,
-      capacity:           data.capacity,
-      pricingType:        data.pricingType,
-      price:              data.price?.toString(),
-      minPrice:           data.minPrice?.toString(),
-      maxPrice:           data.maxPrice?.toString(),
-      currency:           data.currency ?? 'KES',
-      photos:             data.photos ?? [],
+      description: data.description,
+      location:    data.location,
+      pricingType: data.pricingType,
+      price:       data.price?.toString(),
+      minPrice:    data.minPrice?.toString(),
+      maxPrice:    data.maxPrice?.toString(),
+      currency:    data.currency ?? 'KES',
+      photos:      data.photos   ?? [],
       coverPhoto,
-      amenities:          data.amenities ?? [],
-      instantBooking:     data.instantBooking     ?? false,
-      minBookingDuration: data.minBookingDuration ?? 1,
-      maxBookingDuration: data.maxBookingDuration ?? 30,
-      leadTime:           data.leadTime           ?? 1,
-      status:             'draft',
+      status:      'draft',
     }).returning();
 
     return listing;
   }
 
   // ── Get by ID ─────────────────────────────────────────────────────────────────
-
-  async getListingById(listingId: string, _includeRelations = false) {
+  async getListingById(listingId: string) {
     const cacheKey = `listing:${listingId}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
@@ -118,7 +109,6 @@ export class ListingService {
   }
 
   // ── Get by slug ───────────────────────────────────────────────────────────────
-
   async getListingBySlug(slug: string) {
     const cacheKey = `listing:slug:${slug}`;
     const cached   = await getCache(cacheKey);
@@ -143,7 +133,6 @@ export class ListingService {
   }
 
   // ── Update ────────────────────────────────────────────────────────────────────
-
   async updateListing(listingId: string, vendorId: string, data: UpdateListingInput) {
     const listing = await db.query.listings.findFirst({
       where: eq(listings.id, listingId),
@@ -160,23 +149,20 @@ export class ListingService {
 
     const updateData: Record<string, any> = { updatedAt: new Date() };
 
-    if (data.title)            { updateData.slug = this.generateSlug(data.title); updateData.title = data.title; }
-    if (data.description)        updateData.description        = data.description;
-    if (data.categoryId)         updateData.categoryId         = data.categoryId;
-    if (data.location)           updateData.location           = data.location;
-    if (data.capacity)           updateData.capacity           = data.capacity;
-    if (data.amenities)          updateData.amenities          = data.amenities;
-    if (data.photos)             updateData.photos             = data.photos;
-    if (data.coverPhoto)         updateData.coverPhoto         = data.coverPhoto;
-    if (data.pricingType)        updateData.pricingType        = data.pricingType;
-    if (data.price != null)      updateData.price              = data.price.toString();
-    if (data.minPrice != null)   updateData.minPrice           = data.minPrice.toString();
-    if (data.maxPrice != null)   updateData.maxPrice           = data.maxPrice.toString();
-    if (data.currency)           updateData.currency           = data.currency;
-    if (data.instantBooking     != null) updateData.instantBooking     = data.instantBooking;
-    if (data.minBookingDuration != null) updateData.minBookingDuration = data.minBookingDuration;
-    if (data.maxBookingDuration != null) updateData.maxBookingDuration = data.maxBookingDuration;
-    if (data.leadTime           != null) updateData.leadTime           = data.leadTime;
+    if (data.title) {
+      updateData.title = data.title;
+      updateData.slug  = this.generateSlug(data.title);
+    }
+    if (data.description  != null) updateData.description  = data.description;
+    if (data.categoryId   != null) updateData.categoryId   = data.categoryId;
+    if (data.location     != null) updateData.location     = data.location;
+    if (data.photos       != null) updateData.photos       = data.photos;
+    if (data.coverPhoto   != null) updateData.coverPhoto   = data.coverPhoto;
+    if (data.pricingType  != null) updateData.pricingType  = data.pricingType;
+    if (data.price        != null) updateData.price        = data.price.toString();
+    if (data.minPrice     != null) updateData.minPrice     = data.minPrice.toString();
+    if (data.maxPrice     != null) updateData.maxPrice     = data.maxPrice.toString();
+    if (data.currency     != null) updateData.currency     = data.currency;
 
     const [updated] = await db.update(listings)
       .set(updateData)
@@ -189,7 +175,6 @@ export class ListingService {
   }
 
   // ── Status ────────────────────────────────────────────────────────────────────
-
   async updateListingStatus(listingId: string, vendorId: string, status: 'active' | 'paused') {
     const listing = await db.query.listings.findFirst({
       where: eq(listings.id, listingId),
@@ -198,10 +183,17 @@ export class ListingService {
     if (listing.vendorId !== vendorId) throw new Error('Unauthorized');
 
     if (status === 'active') {
-      if (!listing.photos || (listing.photos as string[]).length === 0)
-        throw new Error('Add at least one photo before publishing');
-      if (listing.pricingType !== 'package' && !listing.price && !listing.minPrice)
-        throw new Error('Set a price before publishing');
+      // ✅ Min 3 photos to publish
+      if (!listing.photos || (listing.photos as string[]).length < 3)
+        throw new Error('Add at least 3 photos before publishing');
+
+      if (listing.pricingType === 'package') {
+        if (!listing.minPrice && !listing.maxPrice)
+          throw new Error('Set a price range before publishing');
+      } else if (listing.pricingType !== 'contact') {
+        if (!listing.price)
+          throw new Error('Set a price before publishing');
+      }
     }
 
     const [updated] = await db.update(listings)
@@ -214,7 +206,6 @@ export class ListingService {
   }
 
   // ── Delete ────────────────────────────────────────────────────────────────────
-
   async deleteListing(listingId: string, vendorId: string) {
     const listing = await db.query.listings.findFirst({
       where: eq(listings.id, listingId),
@@ -233,26 +224,45 @@ export class ListingService {
   }
 
   // ── Search (public) ───────────────────────────────────────────────────────────
-
   async searchListings(filters: ListingFilters) {
     const cacheKey = `listings:search:${JSON.stringify(filters)}`;
     const cached   = await getCache(cacheKey);
     if (cached) return cached;
 
-    // Build WHERE conditions using sql template literals (safe, parameterized)
     const conditions = [sql`l.status = 'active'`];
 
     if (filters.categoryId) {
-      conditions.push(sql`l.category_id = ${filters.categoryId}`);
+      // Match exact category OR any listing whose category's parent is this id
+      conditions.push(sql`
+        (l.category_id = ${filters.categoryId}
+        OR EXISTS (
+          SELECT 1 FROM categories sub
+          WHERE sub.id = l.category_id
+            AND sub.parent_id = ${filters.categoryId}
+        ))
+      `);
     } else if (filters.categorySlug) {
-      const cat = await db.query.categories.findFirst({
-        where: eq(categories.slug, filters.categorySlug),
-      });
-      if (cat) conditions.push(sql`l.category_id = ${cat.id}`);
+      conditions.push(sql`
+        EXISTS (
+          SELECT 1 FROM categories c2
+          WHERE c2.id = l.category_id
+            AND (c2.slug = ${filters.categorySlug}
+              OR EXISTS (
+                SELECT 1 FROM categories parent
+                WHERE parent.id = c2.parent_id
+                  AND parent.slug = ${filters.categorySlug}
+              )
+            )
+        )
+      `);
     }
 
-    if (filters.city) {
-      conditions.push(sql`l.location->>'city' ILIKE ${'%' + filters.city + '%'}`);
+    if (filters.county) {
+      conditions.push(sql`l.location->>'county' ILIKE ${'%' + filters.county + '%'}`);
+    }
+
+    if (filters.area) {
+      conditions.push(sql`l.location->>'area' ILIKE ${'%' + filters.area + '%'}`);
     }
 
     if (filters.minPrice) {
@@ -263,13 +273,14 @@ export class ListingService {
       conditions.push(sql`(l.price <= ${filters.maxPrice.toString()} OR l.max_price <= ${filters.maxPrice.toString()})`);
     }
 
-    if (filters.minCapacity) {
-      conditions.push(sql`l.capacity >= ${filters.minCapacity}`);
-    }
-
     if (filters.search) {
       const term = `%${filters.search}%`;
-      conditions.push(sql`(l.title ILIKE ${term} OR l.description ILIKE ${term} OR l.location->>'city' ILIKE ${term})`);
+      conditions.push(sql`(
+        l.title       ILIKE ${term} OR
+        l.description ILIKE ${term} OR
+        l.location->>'county' ILIKE ${term} OR
+        l.location->>'area'   ILIKE ${term}
+      )`);
     }
 
     if (filters.vendorId) {
@@ -278,19 +289,15 @@ export class ListingService {
 
     const orderBy = (() => {
       switch (filters.sortBy) {
-        case 'price':   return sql`l.price ASC`;
+        case 'price':   return sql`l.price ASC NULLS LAST`;
         case 'popular': return sql`l.bookings_count DESC, l.views DESC`;
         default:        return sql`l.created_at DESC`;
       }
     })();
 
-    const limit  = filters.limit  ?? 20;
-    const offset = filters.offset ?? 0;
-
-    // Combine all conditions with AND
-    const whereClause = conditions.reduce(
-      (acc, cond) => sql`${acc} AND ${cond}`
-    );
+    const limit      = filters.limit  ?? 20;
+    const offset     = filters.offset ?? 0;
+    const whereClause = conditions.reduce((acc, cond) => sql`${acc} AND ${cond}`);
 
     const results = await db.execute(sql`
       SELECT ${sql.raw(LISTING_SELECT)}
@@ -305,7 +312,6 @@ export class ListingService {
   }
 
   // ── My listings ───────────────────────────────────────────────────────────────
-
   async getMyListings(vendorId: string) {
     const rows = await db.execute(sql`
       SELECT ${sql.raw(LISTING_SELECT)}
@@ -318,7 +324,6 @@ export class ListingService {
   }
 
   // ── Featured ──────────────────────────────────────────────────────────────────
-
   async getFeaturedListings(limit = 10) {
     const cacheKey = `listings:featured:${limit}`;
     const cached   = await getCache(cacheKey);
@@ -337,7 +342,6 @@ export class ListingService {
   }
 
   // ── Admin: all listings ───────────────────────────────────────────────────────
-
   async getAllListings(filters?: ListingFilters) {
     const conditions = [sql`1=1`];
 
