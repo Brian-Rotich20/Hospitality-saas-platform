@@ -10,14 +10,14 @@ export interface ListingLocation {
 }
 
 export interface ListingFilters {
-  categoryId?:   string;
-  categorySlug?: string;
-  county?:       string;
-  area?:         string;
-  search?:       string;
-  minPrice?:     number;
-  maxPrice?:     number;
-  vendorId?:     string;
+  categoryId?:   string | undefined;
+  categorySlug?: string | undefined;
+  county?:       string | undefined;
+  area?:         string | undefined;
+  search?:       string | undefined;
+  minPrice?:     number | undefined;
+  maxPrice?:     number | undefined;
+  vendorId?:     string | undefined;
   status?:       ListingStatus;
   limit?:        number;
   offset?:       number;

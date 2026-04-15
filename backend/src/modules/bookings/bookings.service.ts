@@ -82,9 +82,7 @@ export class BookingService {
     const startDate = new Date(data.startDate);
     const daysDiff  = Math.floor((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (daysDiff < (listing.leadTime ?? 1)) {
-      throw new Error(`Booking must be made at least ${listing.leadTime ?? 1} day(s) in advance`);
-    }
+
 
     // Availability check
     const isAvailable = await availabilityService.checkAvailability(
@@ -93,9 +91,7 @@ export class BookingService {
     if (!isAvailable) throw new Error('Selected dates are not available');
 
     // Capacity check
-    if (listing.capacity && data.guests > listing.capacity) {
-      throw new Error(`Maximum capacity is ${listing.capacity} guests`);
-    }
+   
 
     // Calculate nights
     const endDate = new Date(data.endDate);
@@ -133,7 +129,6 @@ export class BookingService {
         totalAmount: pricing.totalAmount.toString(),
 
         specialRequests: data.specialRequests,
-        status: listing.instantBooking ? 'confirmed' : 'pending',
       }).returning();
     });
 

@@ -46,7 +46,16 @@ export class ListingController {
       const vendor = await resolveVendor(userId, reply);
       if (!vendor) return;
 
-      const body    = createListingSchema.parse(request.body);
+      let body;
+        try {
+          body = createListingSchema.parse(request.body);
+        } catch (zodErr: any) {
+          request.log.error({ zodErrors: zodErr.errors }, 'Zod validation failed');
+          return reply.code(422).send({
+            success: false,
+            error: zodErr.errors,  // This will show EXACTLY which field is failing
+          });
+        }
       const listing = await listingService.createListing(vendor.id, body);
 
       return reply.code(201).send({
@@ -67,7 +76,7 @@ export class ListingController {
   async getListingById(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id }  = request.params as { id: string };
-      const listing = await listingService.getListingById(id, true);
+      const listing = await listingService.getListingById(id);
       return reply.code(200).send({ success: true, data: listing });
     } catch (error: any) {
       return reply.code(404).send({ success: false, error: error.message });
