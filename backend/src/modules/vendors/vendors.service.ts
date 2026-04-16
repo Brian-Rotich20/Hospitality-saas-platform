@@ -38,14 +38,16 @@ export class VendorService {
       userId,
       businessName: data.businessName,
       slug,
-      description:  data.description,
-      phoneNumber:  data.phoneNumber,
-      status:       'pending',
-      verified:     false,
+      ...(data.description    && { description:    data.description }),
+      ...(data.phoneNumber    && { phoneNumber:    data.phoneNumber }),
+      ...(data.whatsappNumber && { whatsappNumber: data.whatsappNumber }),
+      ...(data.website        && { website:        data.website }),
+      status:   'pending',
+      verified: false,
     }).returning();
 
     return vendor;
-  }
+}
 
   async getVendorProfile(userId: string) {
     const cacheKey = `vendor:profile:${userId}`;

@@ -59,19 +59,21 @@ export class AuthService {
   }
 
   // ── Login ─────────────────────────────────────────────────────────────────────
-
   async login(data: LoginInput) {
     const user = await db.query.users.findFirst({
       where: eq(users.email, data.email),
     });
 
-    // Same error for wrong email or wrong password — prevents user enumeration
     if (!user) throw new Error('Invalid email or password');
 
-    const valid = await comparePassword(data.password, user.passwordHash);
-    if (!valid)  throw new Error('Invalid email or password');
+    // Account was created via Google — has no password
+    if (!user.passwordHash) {
+      throw new Error('This account uses Google sign-in. Please continue with Google.');
+    }
 
-    // ✅ If vendor, attach vendorId to token so middleware doesn't need a DB call
+    const valid = await comparePassword(data.password, user.passwordHash);
+    if (!valid) throw new Error('Invalid email or password');
+
     let vendorId: string | undefined;
     if (user.role === 'vendor') {
       const vendor = await db.query.vendors.findFirst({

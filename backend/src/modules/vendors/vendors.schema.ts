@@ -4,9 +4,12 @@ import { z } from 'zod';
 const kenyanPhone = z.string().regex(/^(\+254|0)[17]\d{8}$/, 'Invalid Kenyan phone number');
 
 export const vendorApplicationSchema = z.object({
-  businessName: z.string().min(3, 'Business name must be at least 3 characters'),
+  businessName:   z.string().min(3, 'Business name must be at least 3 characters'),
+  description:    z.string().min(20).max(500).optional(),
+  phoneNumber:    kenyanPhone.optional(),
+  whatsappNumber: kenyanPhone.optional(),
+  website:        z.string().url().optional().or(z.literal('')),
 });
-
 // Onboarding steps use updateVendorSchema — add these fields:
 export const updateVendorSchema = z.object({
   businessName:         z.string().min(3).optional(),

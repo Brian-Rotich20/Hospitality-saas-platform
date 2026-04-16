@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, pgEnum, boolean, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, pgEnum, boolean, index, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
 
@@ -16,12 +16,12 @@ export const vendors = pgTable('vendors', {
   // Business identity
   businessName:         varchar('business_name', { length: 255 }).notNull(),
   slug:                 varchar('slug', { length: 255 }).notNull().unique(),
-  description:          text('description').notNull(),
+  description:          text('description'),
   businessRegistration: varchar('business_registration', { length: 255 }),
   taxPin:               varchar('tax_pin', { length: 50 }),
 
   // Contact
-  phoneNumber:  varchar('phone_number', { length: 20 }).notNull(),
+  phoneNumber:  varchar('phone_number', { length: 20 }),
   whatsappNumber: varchar('whatsapp_number', { length: 20 }), // for product enquiries
   email:        varchar('email', { length: 255 }),
   website:      varchar('website', { length: 500 }),
@@ -46,6 +46,7 @@ export const vendors = pgTable('vendors', {
 
   // Admin
   status:          vendorStatusEnum('status').notNull().default('pending'),
+  onboardingStep: integer('onboarding_step').notNull().default(0),
   rejectionReason: text('rejection_reason'),
   approvedBy:      uuid('approved_by').references(() => users.id),
   approvedAt:      timestamp('approved_at'),
