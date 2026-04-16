@@ -33,21 +33,15 @@ export class VendorService {
     if (existing) throw new Error('You already have a vendor application');
 
     const slug = this.generateSlug(data.businessName);
+
     const [vendor] = await db.insert(vendors).values({
       userId,
-      businessName:         data.businessName,
+      businessName: data.businessName,
       slug,
-      description:          data.description,
-      phoneNumber:          data.phoneNumber,
-      whatsappNumber:       data.whatsappNumber,
-      businessRegistration: data.businessRegistration,
-      taxPin:               data.taxPin,
-      city:                 data.city,
-      county:               data.county,
-      email:                data.email,
-      website:              data.website,
-      status:               'pending',
-      verified:             false,
+      description:  data.description,
+      phoneNumber:  data.phoneNumber,
+      status:       'pending',
+      verified:     false,
     }).returning();
 
     return vendor;

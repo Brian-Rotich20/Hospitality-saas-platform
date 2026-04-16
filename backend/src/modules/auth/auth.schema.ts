@@ -7,8 +7,6 @@ export const registerSchema = z.object({
   email:    z.string().email('Invalid email address'),
   phone:    kenyanPhone,
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  // ✅ Customers only — vendor role is granted via /vendors/apply
-  role:     z.literal('customer').default('customer'),
 });
 
 export const loginSchema = z.object({

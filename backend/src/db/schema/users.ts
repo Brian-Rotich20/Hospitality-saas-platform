@@ -7,6 +7,7 @@ export const users = pgTable('users', {
   email:             varchar('email', { length: 255 }).notNull().unique(),
   phone:             varchar('phone', { length: 20 }).notNull().unique(),
   passwordHash:      varchar('password_hash', { length: 255 }).notNull(),
+  googleId:     varchar('google_id', { length: 255 }).unique(),
   role:              userRoleEnum('role').notNull().default('customer'),
   fullName:          varchar('full_name', { length: 255 }),
   avatarUrl:         varchar('avatar_url', { length: 500 }),

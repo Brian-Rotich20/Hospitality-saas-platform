@@ -1,12 +1,15 @@
 // fastify.d.ts — put this in src/types/fastify.d.ts
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-
+import '@fastify/oauth2';
+ 
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate:   (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin:   (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireVendor:  (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    googleOAuth2: any;
+
   }
 
   interface FastifyRequest {

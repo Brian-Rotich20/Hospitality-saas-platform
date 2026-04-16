@@ -170,4 +170,62 @@ export class AuthService {
     if (!user) throw new Error('User not found');
     return user;
   }
+
+  // ── Google OAuth ──────────────────────────────────────────────────────────────
+async googleAuth(profile: {
+  googleId:  string;
+  email:     string;
+  fullName:  string;
+  avatarUrl: string | undefined;   // ← was: avatarUrl?: string
+}) {
+  let user = await db.query.users.findFirst({
+    where: eq(users.googleId, profile.googleId),
+  });
+
+  if (!user) {
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, profile.email),
+    });
+
+    if (existing) {
+      const rows = await db.update(users)
+        .set({ googleId: profile.googleId, ...(profile.avatarUrl && { avatarUrl: profile.avatarUrl }) })
+        .where(eq(users.id, existing.id))
+        .returning();
+      user = rows[0];
+    }
+  }
+
+  if (!user) {
+    const rows = await db.insert(users).values({
+      fullName:  profile.fullName,
+      email:     profile.email,
+      googleId:  profile.googleId,
+      ...(profile.avatarUrl && { avatarUrl: profile.avatarUrl }),
+      role:      'customer',
+      verified:  true,
+    }).returning();
+    user = rows[0];
+  }
+
+  // After all branches user must exist
+  if (!user) throw new Error('Failed to create or find user');
+
+  let vendorId: string | undefined;
+  if (user.role === 'vendor') {
+    const vendorRow = await db.query.vendors.findFirst({  // renamed to avoid collision
+      where: eq(vendors.userId, user.id),
+      columns: { id: true },
+    });
+    vendorId = vendorRow?.id;
+  }
+
+  const tokenPayload = { userId: user.id, email: user.email, role: user.role, vendorId };
+  const accessToken  = signAccessToken(tokenPayload);
+  const refreshToken = signRefreshToken(tokenPayload);
+
+  await redis.setex(`refresh:${user.id}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
+
+  return { user: safeUser(user), accessToken, refreshToken };
+}
 }

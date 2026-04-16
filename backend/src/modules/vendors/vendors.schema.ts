@@ -1,34 +1,28 @@
-// src/modules/vendors/vendors.schema.ts
-// ✅ Pure Zod schemas — no DB imports, no circular dependencies
-
+// vendors.schema.ts
 import { z } from 'zod';
 
 const kenyanPhone = z.string().regex(/^(\+254|0)[17]\d{8}$/, 'Invalid Kenyan phone number');
 
 export const vendorApplicationSchema = z.object({
-  businessName:         z.string().min(3,  'Business name must be at least 3 characters'),
-  description:          z.string().min(20, 'Description must be at least 20 characters'),
-  phoneNumber:          kenyanPhone,
-  whatsappNumber:       kenyanPhone.optional(),
-  businessRegistration: z.string().optional(),
-  taxPin:               z.string().optional(),
-  city:                 z.string().min(2, 'City is required'),
-  county:               z.string().optional(),
-  email:                z.string().email().optional(),
-  website:              z.string().url().optional().or(z.literal('')),
+  businessName: z.string().min(3, 'Business name must be at least 3 characters'),
 });
 
+// Onboarding steps use updateVendorSchema — add these fields:
 export const updateVendorSchema = z.object({
-  businessName:   z.string().min(3).optional(),
-  description:    z.string().min(20).optional(),
-  phoneNumber:    kenyanPhone.optional(),
-  whatsappNumber: kenyanPhone.optional(),
-  city:           z.string().min(2).optional(),
-  county:         z.string().optional(),
-  logo:           z.string().url().optional(),
-  coverImage:     z.string().url().optional(),
-  website:        z.string().url().optional().or(z.literal('')),
-  socialLinks:    z.record(z.string(), z.string()).optional(),
+  businessName:         z.string().min(3).optional(),
+  description:          z.string().min(20).max(500).optional(),
+  phoneNumber:          kenyanPhone.optional(),
+  whatsappNumber:       kenyanPhone.optional(),
+  city:                 z.string().min(2).optional(),
+  county:               z.string().optional(),
+  logo:                 z.string().url().optional(),
+  coverImage:           z.string().url().optional(),
+  website:              z.string().url().optional().or(z.literal('')),
+  socialLinks:          z.record(z.string(), z.string()).optional(),
+  businessRegistration: z.string().optional(),
+  taxPin:               z.string().optional(),
+  email:                z.string().email().optional(),
+  onboardingStep:       z.number().int().min(0).max(5).optional(),
 });
 
 export const payoutDetailsSchema = z.discriminatedUnion('payoutMethod', [
@@ -44,8 +38,6 @@ export const payoutDetailsSchema = z.discriminatedUnion('payoutMethod', [
   }),
 ]);
 
-// ✅ vendorReviewSchema — used by PUT /admin/vendors/:id/review
-// Only status and optional rejectionReason — no DB references
 export const vendorReviewSchema = z.object({
   status:          z.enum(['approved', 'rejected']),
   rejectionReason: z.string().min(10, 'Please provide a reason (min 10 chars)').optional(),

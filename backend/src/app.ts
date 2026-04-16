@@ -5,6 +5,7 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
+import fastifyOAuth2 from '@fastify/oauth2';
 import swaggerUI from '@fastify/swagger-ui';
 import { env } from './config/env';
 import { redis } from './config/redis';
@@ -84,7 +85,19 @@ export async function buildApp() {
 
   await fastify.register(swaggerUI, { routePrefix: '/docs' });
 
-  await fastify.register(fastifyCookie, { secret: COOKIE_SECRET });
+  await fastify.register(fastifyOAuth2, {
+    name:        'googleOAuth2',
+    scope:       ['profile', 'email'],
+    credentials: {
+      client: {
+        id:     process.env.GOOGLE_CLIENT_ID!,
+        secret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+      auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
+    },
+    callbackUri: `${process.env.API_URL}/auth/google/callback`,
+    // ← no startRedirectPath
+  });
 
   // ── Decorators
   fastify.decorate('authenticate',  authenticate);
@@ -110,6 +123,7 @@ export async function buildApp() {
 
   // Add temporarily to app.ts AFTER all other routes
 // Remove this entire block after creating your admin account
+
 
 
   fastify.post('/api/dev/seed-admin', async (req, reply) => {
