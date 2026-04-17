@@ -1,7 +1,6 @@
-import { fastify, type FastifyReply, type FastifyRequest } from 'fastify';
+import { type FastifyReply, type FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
-
 const authService = new AuthService();
 
 // ── Cookie config helper
@@ -139,42 +138,6 @@ export class AuthController {
       return reply.code(200).send({ success: true, data: user });
     } catch (error: any) {
       return reply.code(404).send({ success: false, error: error.message });
-    }
-  }
-
-    // ── GET /auth/google/callback
-  async googleCallback(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const token = await (fastify as any).googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
-
-      // Fetch Google profile
-      const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { Authorization: `Bearer ${token.token.access_token}` },
-      });
-      const profile = await profileRes.json() as {
-        id: string; email: string; name: string; picture?: string;
-      };
-
-      const result = await authService.googleAuth({
-        googleId:  profile.id,
-        email:     profile.email,
-        fullName:  profile.name,
-        avatarUrl: profile.picture,
-      });
-
-      reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
-
-      // Redirect with access token — frontend picks it up
-      const intent = (request.query as any).state ?? 'customer';
-      const base   = process.env.FRONTEND_URL!;
-      const dest   = intent === 'vendor'
-        ? `${base}/vendor/onboarding?token=${result.accessToken}`
-        : `${base}/auth/callback?token=${result.accessToken}`;
-
-      return reply.redirect(dest);
-    } catch (error: any) {
-      const base = process.env.FRONTEND_URL!;
-      return reply.redirect(`${base}/auth/login?error=google_failed`);
     }
   }
 }
