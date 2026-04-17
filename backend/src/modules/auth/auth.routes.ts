@@ -51,7 +51,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
       // @fastify/oauth2 passes state back in query params after callback
       const state = (request.query as any).state ?? 'customer';
-      const base  = process.env.FRONTEND_URL!;
+      const base  = process.env.FRONTEND_URL ?? 'https://linkmart-olive.vercel.app';
       const dest  = state === 'vendor'
         ? `${base}/vendor/onboarding?token=${result.accessToken}`
         : `${base}/auth/callback?token=${result.accessToken}`;
