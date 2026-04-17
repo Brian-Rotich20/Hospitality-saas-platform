@@ -99,7 +99,7 @@ export async function buildApp() {
       auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
     },
     startRedirectPath: '/api/auth/google',     // startRedirectPath
-    callbackUri: `${process.env.API_URL}/auth/google/callback`,
+    callbackUri: `${process.env.API_URL}/api/auth/google/callback`,
 
   });
 
@@ -124,10 +124,6 @@ export async function buildApp() {
   fastify.get('/health', async () => ({
     status: 'ok', timestamp: new Date().toISOString(),
   }));
-
-  // Add temporarily to app.ts AFTER all other routes
-// Remove this entire block after creating your admin account
-
 
 
   fastify.post('/api/dev/seed-admin', async (req, reply) => {

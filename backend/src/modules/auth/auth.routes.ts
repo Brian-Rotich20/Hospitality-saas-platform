@@ -22,9 +22,6 @@ export async function authRoutes(fastify: FastifyInstance) {
   }, authController.refresh.bind(authController));
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
-// ── DELETE this entire route — plugin handles it now ──────────────────────────
-// fastify.get('/google', ...) ← REMOVE
-
 // ── Google callback ───────────────────────────────────────────────────────────
   fastify.get('/google/callback', async (request, reply) => {
     try {
