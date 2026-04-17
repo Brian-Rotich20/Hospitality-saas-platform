@@ -24,12 +24,19 @@ export async function authRoutes(fastify: FastifyInstance) {
   // ── Google OAuth ────────────────────────────────────────────────────────────
   // GET /auth/google?state=customer  OR  ?state=vendor
   fastify.get('/google', async (request, reply) => {
-    const state  = (request.query as any).state ?? 'customer';
-    const authUrl = await fastify.googleOAuth2.generateAuthorizationUri(
-      request,
-      reply,
-      { state },
-    );
+    const state = (request.query as any).state ?? 'customer';
+
+    const authUrl = await new Promise<string>((resolve, reject) => {
+      fastify.googleOAuth2.generateAuthorizationUri(
+        request,
+        { state },          // ← options with state
+        (err: Error | null, uri: string) => {
+          if (err) reject(err);
+          else resolve(uri);
+        },
+      );
+    });
+
     return reply.redirect(authUrl);
   });
 
