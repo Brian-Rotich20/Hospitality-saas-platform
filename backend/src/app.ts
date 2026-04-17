@@ -54,6 +54,9 @@ export async function buildApp() {
     optionsSuccessStatus: 204,
   });
 
+  await fastify.register(fastifyCookie, {
+    secret: process.env.COOKIE_SECRET ?? 'changeme',
+  });
   await fastify.register(jwt, { secret: env.JWT_SECRET });
 
   await fastify.register(multipart, {
@@ -95,8 +98,9 @@ export async function buildApp() {
       },
       auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
     },
+    startRedirectPath: '/api/auth/google',     // startRedirectPath
     callbackUri: `${process.env.API_URL}/auth/google/callback`,
-    // ← no startRedirectPath
+
   });
 
   // ── Decorators
