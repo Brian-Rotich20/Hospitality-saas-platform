@@ -209,3 +209,7 @@ async googleAuth(profile: {
   return { user: safeUser(user), accessToken, refreshToken };
 }
 }
+
+function buildTokens(user: { email: string; id: string; role: "customer" | "vendor" | "admin"; }): { accessToken: any; refreshToken: any; } | PromiseLike<{ accessToken: any; refreshToken: any; }> {
+  throw new Error('Function not implemented.');
+}
