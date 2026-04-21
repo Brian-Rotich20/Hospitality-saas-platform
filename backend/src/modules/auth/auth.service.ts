@@ -102,45 +102,23 @@ export class AuthService {
       throw new Error('Invalid or expired refresh token');
     }
 
-    // Check token is still in Redis (not revoked)
-    const key    = `refresh:${payload.userId}:${refreshToken.slice(-20)}`;
-    const luaScript = `
-      local val = redis.call('GET', KEYS[1])
-      if val then
-        redis.call('DEL', KEYS[1])
-        return val
-      end
-        return nil
-      `;
-    const stored = await redis.eval(luaScript, 1,key) as string | null;
-    if (!stored) throw new Error('Refresh token has been revoked');
+    const key = `refresh:${payload.userId}:${refreshToken.slice(-20)}`;
 
-   if(stored !== refreshToken) {
-      throw new Error('Refresh token mismatch');
-    }
+    // Check existence first WITHOUT deleting
+    const stored = await redis.get(key) as string | null;
+    if (!stored)                throw new Error('Refresh token has been revoked');
+    if (stored !== refreshToken) throw new Error('Refresh token mismatch');
 
-    // Re-fetch vendorId in case role changed (e.g. after vendor approval)
+    // Now delete and rotate atomically
+    await redis.del(key);
+
     const user = await db.query.users.findFirst({
       where: eq(users.id, payload.userId),
       columns: { id: true, email: true, role: true },
     });
     if (!user) throw new Error('User not found');
 
-    let vendorId: string | undefined;
-    if (user.role === 'vendor') {
-      const vendor = await db.query.vendors.findFirst({
-        where: eq(vendors.userId, user.id),
-        columns: { id: true },
-      });
-      vendorId = vendor?.id;
-    }
-
-    const newPayload      = { userId: user.id, email: user.email, role: user.role, vendorId };
-    const newAccessToken  = signAccessToken(newPayload);
-    const newRefreshToken = signRefreshToken(newPayload);
-
-    await redis.setex(`refresh:${user.id}:${newRefreshToken.slice(-20)}`, REFRESH_TTL_SECS, newRefreshToken);
-
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await buildTokens(user);
     return { accessToken: newAccessToken, refreshToken: newRefreshToken };
   }
 
