@@ -44,8 +44,7 @@ export async function buildApp() {
   // ── Plugins 
   await fastify.register(cors, {
     origin: [
-          'https://linkmart-olive.vercel.app', 
-          'http://localhost:3000',              
+          'https://linkmart-olive.vercel.app',              
         ],
     methods:              ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders:       ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
@@ -98,7 +97,6 @@ export async function buildApp() {
       },
       auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
     },
-    startRedirectPath: '/api/auth/google',     // startRedirectPath
     callbackUri: `${process.env.API_URL}/api/auth/google/callback`,
 
   });
