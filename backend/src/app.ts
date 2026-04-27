@@ -1,7 +1,7 @@
 import './types/fastify-augmentation';
 import { db } from './config/database';
 import Fastify from 'fastify';
-import { env } from './env';
+import { env } from './config/env';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
