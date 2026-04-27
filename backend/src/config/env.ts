@@ -55,6 +55,7 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(), // you used Resend, not SendGrid
   FROM_EMAIL: z.string().email().optional(),
   FROM_NAME: z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(), // in case you switch back to SendGrid
 
   // ── SMS
   AFRICASTALKING_API_KEY: z.string().optional(),
