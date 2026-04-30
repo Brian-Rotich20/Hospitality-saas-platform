@@ -42,7 +42,7 @@ export async function buildApp() {
   // ── Plugins 
   await fastify.register(cors, {
     origin: [
-          'https://linkmart-olive.vercel.app',              
+          'https://linkmart-olive.vercel.app', 'http://localhost:3000',           
         ],
     methods:              ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders:       ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
