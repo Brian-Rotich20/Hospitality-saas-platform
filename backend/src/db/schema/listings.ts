@@ -46,6 +46,8 @@ export const listings = pgTable('listings', {
   status:        listingStatusEnum('status').notNull().default('draft'),
   views:         integer('views').notNull().default(0),
   bookingsCount: integer('bookings_count').notNull().default(0),
+  rating:      decimal('rating',       { precision: 3, scale: 1 }),   // e.g. 4.7
+  reviewCount: integer('review_count').notNull().default(0),
 
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

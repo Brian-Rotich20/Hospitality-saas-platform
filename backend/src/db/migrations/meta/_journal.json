@@ -64,6 +64,13 @@
       "when": 1776373273176,
       "tag": "0008_tiresome_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777546769868,
+      "tag": "0009_lazy_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

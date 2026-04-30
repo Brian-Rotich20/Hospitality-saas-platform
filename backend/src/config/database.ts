@@ -12,6 +12,7 @@ import * as paymentsSchema     from '../db/schema/payments';
 import * as payoutsSchema      from '../db/schema/payouts';
 import * as categoriesSchema   from '../db/schema/categories';
 import * as productsSchema     from '../db/schema/products';
+import * as reviewsSchema      from '../db/schema/reviews';
 
 const schema = {
   ...usersSchema,
@@ -23,6 +24,7 @@ const schema = {
   ...payoutsSchema,
   ...categoriesSchema,
   ...productsSchema,
+  ...reviewsSchema,
 };
 
 const client = postgres(env.DATABASE_URL);

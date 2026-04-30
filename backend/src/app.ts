@@ -12,7 +12,6 @@ import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-
 import { hashPassword } from './utils/password'; // adjust path if different
 import { users }      from './db/schema/users';
 import { categories } from './db/schema/categories'; // at top of file
-
 import { eq } from 'drizzle-orm';
 // ── Route imports 
 import { authRoutes }                        from './modules/auth/auth.routes';
@@ -24,6 +23,7 @@ import { productRoutes }                     from './modules/products/products.r
 import { availabilityRoutes }                from './modules/availability/availability.routes';
 import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes';
 import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes';
+import { reviewRoutes } from './modules/reviews/reviews.routes';
 
 // ── Middleware 
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
@@ -183,7 +183,7 @@ export async function buildApp() {
   await fastify.register(bookingAdminRoutes,  { prefix: '/api/admin/bookings' });
   await fastify.register(payoutRoutes,        { prefix: '/api/payouts'        });
   await fastify.register(payoutAdminRoutes,   { prefix: '/api/admin/payouts'  });
-
+  await fastify.register(reviewRoutes, { prefix: '/api/reviews' });
 
   return fastify;
 }

@@ -9,7 +9,7 @@ const LISTING_SELECT = `
   l.id, l.vendor_id, l.category_id, l.title, l.slug, l.description,
   l.location, l.pricing_type, l.price, l.min_price, l.max_price,
   l.currency, l.photos, l.cover_photo,
-  l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
+  l.status, l.views, l.bookings_count, l.created_at, l.updated_at, l.rating, l.reviews_count,
   json_build_object(
     'id',             v.id,
     'businessName',   v.business_name,
