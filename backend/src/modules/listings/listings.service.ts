@@ -10,8 +10,6 @@ const LISTING_SELECT = `
   l.location, l.pricing_type, l.price, l.min_price, l.max_price,
   l.currency, l.photos, l.cover_photo,
   l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
-  COALESCE(l.rating, 0)       AS rating,
-  COALESCE(l.review_count, 0) AS review_count,
   json_build_object(
     'id',             v.id,
     'businessName',   v.business_name,
