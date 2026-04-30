@@ -51,6 +51,12 @@ export async function buildApp() {
     optionsSuccessStatus: 204,
   });
 
+  fastify.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'OPTIONS') {
+      reply.send();
+    }
+  });
+
   await fastify.register(fastifyCookie, {
     secret: process.env.COOKIE_SECRET ?? 'changeme',
   });
