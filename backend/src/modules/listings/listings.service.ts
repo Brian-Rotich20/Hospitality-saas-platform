@@ -10,8 +10,6 @@ const LISTING_SELECT = `
   l.location, l.pricing_type, l.price, l.min_price, l.max_price,
   l.currency, l.photos, l.cover_photo,
   l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
-  (SELECT ROUND(AVG(r.rating)::numeric, 1) FROM reviews r WHERE r.listing_id = l.id AND r.is_visible = true) AS rating,
-  (SELECT COUNT(*)::int                    FROM reviews r WHERE r.listing_id = l.id AND r.is_visible = true) AS review_count,
   json_build_object(
     'id',             v.id,
     'businessName',   v.business_name,
