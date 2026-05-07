@@ -24,7 +24,7 @@ import { availabilityRoutes }                from './modules/availability/availa
 import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes';
 import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes';
 import { reviewRoutes } from './modules/reviews/reviews.routes';
-
+import { userRoutes } from './modules/users/users.routes';
 // ── Middleware 
 import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
 
@@ -184,6 +184,7 @@ export async function buildApp() {
   await fastify.register(payoutRoutes,        { prefix: '/api/payouts'        });
   await fastify.register(payoutAdminRoutes,   { prefix: '/api/admin/payouts'  });
   await fastify.register(reviewRoutes, { prefix: '/api/reviews' });
+  await fastify.register(userRoutes, { prefix: '/api/users' });
 
   return fastify;
 }

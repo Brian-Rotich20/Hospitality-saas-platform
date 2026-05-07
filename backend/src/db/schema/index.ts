@@ -8,4 +8,5 @@ export * from './payouts';
 export * from './categories';
 export * from './products';
 export * from './reviews';
+export * from './savedListings';
 // export * from './uploads';
