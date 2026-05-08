@@ -229,4 +229,28 @@ export class VendorController {
       return reply.code(400).send({ success: false, error: error.message });
     }
   }
+
+  async verifyEmail(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = (request as any).user;
+      const { otp } = request.body as { otp: string };
+      if (!otp) return reply.code(400).send({ success: false, error: 'OTP is required' });
+ 
+      const vendor = await this.vendorService.verifyVendorOTP(user.userId, otp);
+      return reply.send({ success: true, data: vendor, message: 'Email verified! Your vendor account is now active.' });
+    } catch (error: any) {
+      return reply.code(400).send({ success: false, error: error.message });
+    }
+  }
+ 
+  async resendOTP(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = (request as any).user;
+      await this.vendorService.resendOTP(user.userId);
+      return reply.send({ success: true, message: 'Verification code sent to your email.' });
+    } catch (error: any) {
+      return reply.code(400).send({ success: false, error: error.message });
+    }
+  }
 }
+

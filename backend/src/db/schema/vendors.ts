@@ -3,6 +3,7 @@ import { relations } from 'drizzle-orm';
 import { users } from './users';
 
 export const vendorStatusEnum = pgEnum('vendor_status', [
+  'pending_verification',
   'pending',
   'approved',
   'rejected',
