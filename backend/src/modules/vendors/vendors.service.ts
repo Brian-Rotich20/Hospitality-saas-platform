@@ -76,6 +76,8 @@ export class VendorService {
       verified:       false,
     }).returning();
 
+    if (!vendor) throw new Error('Failed to create vendor application. Please try again.');
+
     // Send OTP email
     await this._sendOTP(userId, vendor.id, data.businessName, user.email);
 
@@ -104,7 +106,7 @@ export class VendorService {
     // Send email
     await sendVendorVerificationEmail({
       to:           email,
-      businessName,
+      businessName: businessName,
       otp,
     });
 
@@ -150,6 +152,7 @@ export class VendorService {
       .where(eq(vendors.id, data.vendorId))
       .returning();
 
+     if (!vendor) throw new Error('Vendor record not found. Please contact support.');
     // Upgrade user role to vendor
     await db.update(users)
       .set({ role: 'vendor', updatedAt: new Date() })

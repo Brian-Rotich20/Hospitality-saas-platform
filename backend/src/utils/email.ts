@@ -151,8 +151,8 @@ export async function sendVendorApprovedEmail(opts: {
 // ── Send vendor rejection email ───────────────────────────────────────────────
 export async function sendVendorRejectedEmail(opts: {
   to:           string;
-  businessName: string;
-  reason?:      string;
+  businessName: string | undefined;
+  reason?:      string | undefined;
 }) {
   return resend.emails.send({
     from:    FROM,

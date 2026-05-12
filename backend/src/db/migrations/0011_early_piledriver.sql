@@ -1,0 +1,1 @@
+ALTER TYPE "public"."vendor_status" ADD VALUE 'pending_verification' BEFORE 'pending';

@@ -78,6 +78,13 @@
       "when": 1778148305620,
       "tag": "0010_free_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1778245745591,
+      "tag": "0011_early_piledriver",
+      "breakpoints": true
     }
   ]
 }
