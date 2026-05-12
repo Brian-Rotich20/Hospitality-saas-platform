@@ -88,31 +88,35 @@ export class VendorService {
   // ── Send OTP (internal) ───────────────────────────────────────────────────
 
   private async _sendOTP(userId: string, vendorId: string, businessName: string | undefined, email?: string) {
-    // Get email if not passed
-    if (!email) {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { email: true },
+      // Get email if not passed
+      if (!email) {
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, userId),
+          columns: { email: true },
+        });
+        email = user?.email;
+      }
+      if (!email) throw new Error('User email not found');
+  
+      const otp = generateOTP();
+      const key = `vendor:otp:${userId}`;
+  
+      // ✅ Store OTP in Redis synchronously — this MUST complete before returning
+      // so the verify endpoint can find it
+      await redis.setex(key, OTP_TTL, JSON.stringify({ otp, vendorId, attempts: 0 }));
+  
+      // ✅ Fire email completely non-blocking — don't await, don't let it block response
+      // If Resend is slow/down, user can hit "Resend code" on the verify page
+      setImmediate(() => {
+        sendVendorVerificationEmail({
+          to:           email as string,
+          businessName: businessName,
+          otp,
+        }).catch(err => console.error('[Resend OTP email failed]', err?.message));
       });
-      email = user?.email;
+  
+      return { sent: true };
     }
-    if (!email) throw new Error('User email not found');
-
-    const otp = generateOTP();
-    const key = `vendor:otp:${userId}`;
-
-    // Store OTP in Redis with TTL
-    await redis.setex(key, OTP_TTL, JSON.stringify({ otp, vendorId, attempts: 0 }));
-
-    // Send email
-    await sendVendorVerificationEmail({
-      to:           email,
-      businessName: businessName,
-      otp,
-    });
-
-    return { sent: true };
-  }
 
   // ── Verify OTP — activates vendor account ────────────────────────────────
 
@@ -167,10 +171,13 @@ export class VendorService {
       columns: { email: true },
     });
     if (user?.email) {
-      await sendVendorApprovedEmail({
-        to:           user.email,
-        businessName: vendor.businessName,
-      }).catch(() => {}); // non-blocking
+      // ✅ Fully non-blocking — don't hold up the verify response
+      setImmediate(() => {
+        sendVendorApprovedEmail({
+          to:           user!.email!,
+          businessName: vendor.businessName,
+        }).catch(err => console.error('[Welcome email failed]', err?.message));
+      });
     }
 
     return vendor;
