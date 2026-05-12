@@ -49,7 +49,7 @@ export class VendorService {
     if (existing) {
       // If pending_verification, allow resend OTP
       if (existing.status === 'pending_verification') {
-        await this._sendOTP(userId, existing.id, data.businessName);
+        await this._sendOTP(userId, existing.id, data.businessName).catch(err => console.error('[OTP resend failed]', err));
         return { vendor: existing, otpSent: true };
       }
       throw new Error('You already have a vendor application');
@@ -79,7 +79,8 @@ export class VendorService {
     if (!vendor) throw new Error('Failed to create vendor application. Please try again.');
 
     // Send OTP email
-    await this._sendOTP(userId, vendor.id, data.businessName, user.email);
+    await this._sendOTP(userId, vendor.id, data.businessName, user.email)
+      .catch(err => console.error('[OTP email failed]', err));
 
     return { vendor, otpSent: true };
   }
