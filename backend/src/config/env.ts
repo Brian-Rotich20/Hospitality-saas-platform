@@ -73,6 +73,11 @@ const envSchema = z.object({
   // ── Clerk
   CLERK_SECRET_KEY: z.string().optional(),
   CLERK_WEBHOOK_SECRET: z.string().optional(),
+
+  // ── Email credentials for Nodemailer (if you switch back)
+  EMAIL_USER:      z.string().optional(),
+  EMAIL_PASS:      z.string().optional(),
+  EMAIL_FROM_NAME: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
