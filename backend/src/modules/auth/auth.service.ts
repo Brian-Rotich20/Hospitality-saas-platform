@@ -50,46 +50,67 @@ export class AuthService {
     });
 
     if (existing) {
-      if (!existing.passwordHash) {
-        throw new Error('This email is linked to Google sign-in. Please use "Continue with Google".');
+      // Google account — allow linking password
+      if (!existing.passwordHash && existing.googleId) {
+        const passwordHash = await hashPassword(data.password);
+        const [updated] = await db.update(users)
+          .set({
+            passwordHash,
+            fullName:  data.fullName ?? existing.fullName,
+            phone:     data.phone    ?? existing.phone,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existing.id))
+          .returning({
+            id: users.id, email: users.email,
+            fullName: users.fullName, phone: users.phone, role: users.role,
+          });
+        if (!updated) throw new Error('Failed to link account. Please try again.');
+        const { accessToken, refreshToken } = await buildTokens(updated);
+        return { user: updated, accessToken, refreshToken };
       }
       throw new Error('An account with this email already exists. Please sign in.');
     }
 
-   try{
-    const passwordHash = await hashPassword(data.password);
-    const [user] = await db.insert(users).values({
-      fullName: data.fullName,
-      email:    data.email,
-      phone:    data.phone,
-      passwordHash,
-      role:     'customer',
-    }).returning({
-      id:       users.id,
-      email:    users.email,
-      fullName: users.fullName,
-      phone:    users.phone,
-      role:     users.role,
-    });
+    try {
+      const passwordHash = await hashPassword(data.password);
 
-    if (!user) throw new Error('Registration failed. Please try again.');
-    const { accessToken, refreshToken } = await buildTokens(user);
-    return { user, accessToken, refreshToken };
+      // ✅ Set role=vendor immediately if intent=vendor
+      // Vendor is still gated by vendor.status = 'pending_verification'
+      // Role just controls routing — not actual feature access
+      const role = data.intent === 'vendor' ? 'vendor' : 'customer';
 
-  } catch (err: any) {
-    // Catch the Postgres constraint violation cleanly
-    if (err.message?.includes('unique') || err.code === '23505') {
-      if (err.message?.includes('phone')){
-        throw new Error('This phone number is already registered. Please use a different number or sign in')
+      const [user] = await db.insert(users).values({
+        fullName: data.fullName,
+        email:    data.email,
+        phone:    data.phone,
+        passwordHash,
+        role,
+      }).returning({
+        id:       users.id,
+        email:    users.email,
+        fullName: users.fullName,
+        phone:    users.phone,
+        role:     users.role,
+      });
+
+      if (!user) throw new Error('Registration failed. Please try again.');
+
+      const { accessToken, refreshToken } = await buildTokens(user);
+      return { user, accessToken, refreshToken };
+
+    } catch (err: any) {
+      if (err.message?.includes('unique') || err.code === '23505') {
+        if (err.message?.includes('phone')) {
+          throw new Error('This phone number is already registered. Please use a different number or sign in.');
+        }
+        if (err.message?.includes('email')) {
+          throw new Error('An account with this email already exists. Please sign in.');
+        }
+        throw new Error('An account with these details already exists.');
       }
-      if (err.message?.includes('email')) {
-        throw new Error('An account with this email already exists. Please sign in or use a different email');
-      }
-      throw new Error('An account with this email or phone number already exists. Please sign in or use different credentials');
+      throw err;
     }
-    throw err;
-  }
-
   }
 
   async login(data: LoginInput) {
@@ -116,12 +137,10 @@ export class AuthService {
     fullName:  string;
     avatarUrl: string | undefined;
   }) {
-    // 1. Find by googleId
     let user = await db.query.users.findFirst({
       where: eq(users.googleId, profile.googleId),
     });
 
-    // 2. Find by email — link Google to existing account
     if (!user) {
       const existing = await db.query.users.findFirst({
         where: eq(users.email, profile.email),
@@ -141,7 +160,6 @@ export class AuthService {
       }
     }
 
-    // 3. New user — create account
     if (!user) {
       const rows = await db.insert(users).values({
         fullName:  profile.fullName,
@@ -174,7 +192,6 @@ export class AuthService {
     if (!stored)                 throw new Error('Session expired. Please sign in again.');
     if (stored !== refreshToken) throw new Error('Token mismatch. Please sign in again.');
 
-    // Rotate — delete old, issue new
     await redis.del(key);
 
     const user = await db.query.users.findFirst({
