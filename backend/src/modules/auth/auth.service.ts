@@ -56,6 +56,7 @@ export class AuthService {
       throw new Error('An account with this email already exists. Please sign in.');
     }
 
+   try{
     const passwordHash = await hashPassword(data.password);
     const [user] = await db.insert(users).values({
       fullName: data.fullName,
@@ -72,9 +73,23 @@ export class AuthService {
     });
 
     if (!user) throw new Error('Registration failed. Please try again.');
-
     const { accessToken, refreshToken } = await buildTokens(user);
     return { user, accessToken, refreshToken };
+
+  } catch (err: any) {
+    // Catch the Postgres constraint violation cleanly
+    if (err.message?.includes('unique') || err.code === '23505') {
+      if (err.message?.includes('phone')){
+        throw new Error('This phone number is already registered. Please use a different number or sign in')
+      }
+      if (err.message?.includes('email')) {
+        throw new Error('An account with this email already exists. Please sign in or use a different email');
+      }
+      throw new Error('An account with this email or phone number already exists. Please sign in or use different credentials');
+    }
+    throw err;
+  }
+
   }
 
   async login(data: LoginInput) {
