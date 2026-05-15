@@ -1,14 +1,14 @@
-// utils/jwt.ts — add refresh token signing here so everything is in one place
-
+// src/utils/jwt.ts
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
 
 export interface JWTPayload {
-  userId:    string;
-  email:     string;
-  role:      'customer' | 'vendor' | 'admin';
-  vendorId?: string | undefined;   // ✅ optional — only vendors have this
-  fullName?: string | undefined;   // ✅ optional too
+  userId:        string;
+  email:         string;
+  role:          'customer' | 'vendor' | 'admin';
+  emailVerified: boolean;        // ← NEW — middleware reads this
+  vendorId?:     string;
+  fullName?:     string;
 }
 
 const ACCESS_TTL  = '15m';
