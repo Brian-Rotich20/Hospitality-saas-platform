@@ -21,7 +21,7 @@ function safeUser(user: any) {
   return safe;
 }
 
-// ── Build JWT pair — emailVerified is embedded so middleware needs no DB call ──
+// ── Build JWT pair ─────────────────────────────────────────────────────────────
 async function buildTokens(user: {
   id:            string;
   email:         string;
@@ -57,12 +57,12 @@ async function buildTokens(user: {
   return { accessToken, refreshToken };
 }
 
-// ── Send customer OTP ──────────────────────────────────────────────────────────
+// ── Send customer OTP (internal) ───────────────────────────────────────────────
 async function sendCustomerOTP(userId: string, email: string, fullName: string) {
   const otp = generateOTP();
   const key = `auth:otp:${userId}`;
+  // Store FIRST (sync) — then fire email non-blocking
   await redis.setex(key, OTP_TTL, JSON.stringify({ otp, attempts: 0 }));
-
   setImmediate(() => {
     sendCustomerVerificationEmail({ to: email, fullName, otp })
       .catch(err => console.error('[Customer OTP email failed]', err?.message));
@@ -71,13 +71,14 @@ async function sendCustomerOTP(userId: string, email: string, fullName: string) 
 
 export class AuthService {
 
-  // ── Register ─────────────────────────────────────────────────────────────────
+  // ── Register ──────────────────────────────────────────────────────────────────
   async register(data: RegisterInput) {
     const existing = await db.query.users.findFirst({
       where: eq(users.email, data.email),
     });
 
     if (existing) {
+      // Google account — allow password linking
       if (!existing.passwordHash && existing.googleId) {
         const passwordHash = await hashPassword(data.password);
         const [updated] = await db.update(users)
@@ -85,7 +86,10 @@ export class AuthService {
           .where(eq(users.id, existing.id))
           .returning({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, role: users.role, verified: users.verified });
         if (!updated) throw new Error('Failed to link account. Please try again.');
-        const { accessToken, refreshToken } = await buildTokens({ ...updated, role: updated.role as any, emailVerified: updated.verified ?? true });
+        const { accessToken, refreshToken } = await buildTokens({
+          id: updated.id, email: updated.email, role: updated.role as any,
+          emailVerified: updated.verified ?? true,
+        });
         return { user: updated, accessToken, refreshToken, requiresVerification: false };
       }
       throw new Error('An account with this email already exists. Please sign in.');
@@ -96,16 +100,19 @@ export class AuthService {
       const role = data.intent === 'vendor' ? 'vendor' : 'customer';
 
       const [user] = await db.insert(users).values({
-        fullName: data.fullName, email: data.email, phone: data.phone, passwordHash, role,
-        verified: false,
-      }).returning({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, role: users.role, verified: users.verified });
+        fullName: data.fullName, email: data.email, phone: data.phone,
+        passwordHash, role, verified: false,
+      }).returning({
+        id: users.id, email: users.email, fullName: users.fullName,
+        phone: users.phone, role: users.role, verified: users.verified,
+      });
 
       if (!user) throw new Error('Registration failed. Please try again.');
 
-      // Send OTP email (non-blocking)
+      // Send OTP — Redis write is awaited; email fires in background
       await sendCustomerOTP(user.id, user.email, user.fullName ?? 'there');
 
-      // Token has emailVerified=false — middleware will block all protected routes
+      // emailVerified=false — middleware will redirect to verify-email on every protected route
       const { accessToken, refreshToken } = await buildTokens({
         id: user.id, email: user.email, role: user.role as any, emailVerified: false,
       });
@@ -122,7 +129,7 @@ export class AuthService {
     }
   }
 
-  // ── Verify customer OTP ───────────────────────────────────────────────────────
+  // ── Verify customer OTP ────────────────────────────────────────────────────────
   async verifyCustomerOTP(userId: string, otp: string) {
     const key    = `auth:otp:${userId}`;
     const stored = await redis.get(key) as string | null;
@@ -147,11 +154,14 @@ export class AuthService {
     const [user] = await db.update(users)
       .set({ verified: true, updatedAt: new Date() })
       .where(eq(users.id, userId))
-      .returning({ id: users.id, email: users.email, fullName: users.fullName, phone: users.phone, role: users.role, verified: users.verified });
+      .returning({
+        id: users.id, email: users.email, fullName: users.fullName,
+        phone: users.phone, role: users.role, verified: users.verified,
+      });
 
     if (!user) throw new Error('User not found.');
 
-    // Fresh token with emailVerified=true — unlocks all routes
+    // Fresh token — emailVerified=true unlocks all protected routes
     const { accessToken, refreshToken } = await buildTokens({
       id: user.id, email: user.email, role: user.role as any, emailVerified: true,
     });
@@ -159,7 +169,7 @@ export class AuthService {
     return { user, accessToken, refreshToken };
   }
 
-  // ── Resend customer OTP ───────────────────────────────────────────────────────
+  // ── Resend customer OTP ────────────────────────────────────────────────────────
   async resendCustomerOTP(userId: string) {
     const user = await db.query.users.findFirst({
       where:   eq(users.id, userId),
@@ -172,14 +182,16 @@ export class AuthService {
     const stored = await redis.get(key) as string | null;
     if (stored) {
       const ttl = await redis.ttl(key);
-      if (ttl > OTP_TTL - OTP_RESEND_WAIT) throw new Error('Please wait 60 seconds before requesting a new code.');
+      if (ttl > OTP_TTL - OTP_RESEND_WAIT) {
+        throw new Error('Please wait 60 seconds before requesting a new code.');
+      }
     }
 
     await sendCustomerOTP(userId, user.email, user.fullName ?? 'there');
     return { sent: true };
   }
 
-  // ── Login — blocks unverified users ──────────────────────────────────────────
+  // ── Login — hard blocks unverified users ───────────────────────────────────────
   async login(data: LoginInput) {
     const user = await db.query.users.findFirst({ where: eq(users.email, data.email) });
     if (!user) throw new Error('Invalid email or password');
@@ -189,15 +201,16 @@ export class AuthService {
     if (!valid) throw new Error('Invalid email or password');
 
     if (!user.verified) {
-      // Re-send OTP so they can verify right away — fire and forget
+      // Re-send OTP automatically so they can verify right away
       sendCustomerOTP(user.id, user.email, user.fullName ?? 'there').catch(() => {});
 
       const { accessToken } = await buildTokens({
         id: user.id, email: user.email, role: user.role as any, emailVerified: false,
       });
 
+      // Attach accessToken to the error so controller can return it to frontend
       throw Object.assign(
-        new Error('Please verify your email before signing in. We just sent you a new code.'),
+        new Error('Please verify your email before signing in. We just resent your code.'),
         { code: 'EMAIL_NOT_VERIFIED', accessToken },
       );
     }
@@ -208,7 +221,7 @@ export class AuthService {
     return { user: safeUser(user), accessToken, refreshToken };
   }
 
-  // ── Google auth — already verified by Google ──────────────────────────────────
+  // ── Google auth — Google already verified the email ────────────────────────────
   async googleAuth(profile: { googleId: string; email: string; fullName: string; avatarUrl: string | undefined }) {
     let user = await db.query.users.findFirst({ where: eq(users.googleId, profile.googleId) });
 
@@ -238,7 +251,7 @@ export class AuthService {
     return { user: safeUser(user), accessToken, refreshToken };
   }
 
-  // ── Refresh ───────────────────────────────────────────────────────────────────
+  // ── Refresh ────────────────────────────────────────────────────────────────────
   async refresh(refreshToken: string) {
     let payload: any;
     try { payload = verifyToken(refreshToken); }
@@ -256,10 +269,11 @@ export class AuthService {
     });
     if (!user) throw new Error('User not found');
 
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await buildTokens({
-      id: user.id, email: user.email, role: user.role as any, emailVerified: user.verified ?? false,
+    const { accessToken: a, refreshToken: r } = await buildTokens({
+      id: user.id, email: user.email, role: user.role as any,
+      emailVerified: user.verified ?? false,
     });
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    return { accessToken: a, refreshToken: r };
   }
 
   async logout(userId: string, refreshToken: string) {

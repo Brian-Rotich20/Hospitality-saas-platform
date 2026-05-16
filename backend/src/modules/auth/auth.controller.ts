@@ -15,17 +15,6 @@ function refreshCookieOptions() {
   };
 }
 
-function setCookieHeader(reply: FastifyReply, name: string, value: string, maxAge: number) {
-  // Non-httpOnly so Next.js middleware can read it client-side
-  reply.setCookie(name, value, {
-    httpOnly: false,
-    secure:   true,
-    sameSite: 'none',
-    maxAge,
-    path:     '/',
-  });
-}
-
 export class AuthController {
 
   // ── POST /auth/register ────────────────────────────────────────────────────
@@ -36,16 +25,15 @@ export class AuthController {
 
       reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
-      // Always return 201 — frontend reads requiresVerification to redirect
       return reply.code(201).send({
         success: true,
         message: result.requiresVerification
-          ? 'Account created. Please check your email for a verification code.'
+          ? 'Account created. Check your email for a verification code.'
           : 'Account created successfully.',
         data: {
-          user:                  result.user,
-          accessToken:           result.accessToken,
-          requiresVerification:  result.requiresVerification,
+          user:                 result.user,
+          accessToken:          result.accessToken,
+          requiresVerification: result.requiresVerification,
         },
       });
     } catch (error: any) {
@@ -57,17 +45,14 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/verify-email ────────────────────────────────────────────────
-  // Works for BOTH customers (auth:otp:*) and vendors (via vendor controller)
-  // This route handles customers only — vendors use /vendors/verify-email
+  // ── POST /auth/verify-email  (customer) ────────────────────────────────────
+  // Requires: Bearer token (emailVerified=false is fine here)
   async verifyEmail(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
       const { otp } = request.body as { otp: string };
 
-      if (!otp) {
-        return reply.code(400).send({ success: false, error: 'OTP is required' });
-      }
+      if (!otp) return reply.code(400).send({ success: false, error: 'OTP is required' });
 
       const result = await authService.verifyCustomerOTP(userId, otp);
 
@@ -75,11 +60,11 @@ export class AuthController {
       reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
       return reply.send({
-        success:     true,
-        message:     'Email verified! Welcome to LinkMart.',
+        success: true,
+        message: 'Email verified! Welcome to LinkMart.',
         data: {
           user:        result.user,
-          accessToken: result.accessToken,
+          accessToken: result.accessToken,   // frontend must swap this in cookie
         },
       });
     } catch (error: any) {
@@ -87,7 +72,7 @@ export class AuthController {
     }
   }
 
-  // ── POST /auth/resend-otp ──────────────────────────────────────────────────
+  // ── POST /auth/resend-otp  (customer) ──────────────────────────────────────
   async resendOTP(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
@@ -108,23 +93,19 @@ export class AuthController {
 
       return reply.code(200).send({
         success: true,
-        data: {
-          user:        result.user,
-          accessToken: result.accessToken,
-        },
+        data: { user: result.user, accessToken: result.accessToken },
       });
     } catch (error: any) {
-      // ── Unverified user — send 403 with a fresh token so they can reach verify page
+      // Unverified user — send 403 + short-lived token so frontend can reach verify page
       if (error?.code === 'EMAIL_NOT_VERIFIED') {
         return reply.code(403).send({
           success:              false,
           error:                error.message,
           code:                 'EMAIL_NOT_VERIFIED',
-          accessToken:          error.accessToken,   // short-lived, emailVerified=false
+          accessToken:          error.accessToken,
           requiresVerification: true,
         });
       }
-
       const isValidation = error?.name === 'ZodError';
       return reply.code(isValidation ? 422 : 400).send({
         success: false,
@@ -136,20 +117,13 @@ export class AuthController {
   // ── POST /auth/refresh ─────────────────────────────────────────────────────
   async refresh(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const token = (request.cookies as any)?.refreshToken
-        ?? (request.body as any)?.refreshToken;
-
-      if (!token) {
-        return reply.code(401).send({ success: false, error: 'Refresh token required' });
-      }
+      const token = (request.cookies as any)?.refreshToken ?? (request.body as any)?.refreshToken;
+      if (!token) return reply.code(401).send({ success: false, error: 'Refresh token required' });
 
       const result = await authService.refresh(token);
       reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
-      return reply.code(200).send({
-        success: true,
-        data: { accessToken: result.accessToken },
-      });
+      return reply.code(200).send({ success: true, data: { accessToken: result.accessToken } });
     } catch (error: any) {
       reply.clearCookie('refreshToken', { path: '/' });
       return reply.code(401).send({ success: false, error: error.message });
@@ -160,14 +134,9 @@ export class AuthController {
   async logout(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
-      const token  = (request.cookies as any)?.refreshToken
-        ?? (request.body as any)?.refreshToken;
-
+      const token  = (request.cookies as any)?.refreshToken ?? (request.body as any)?.refreshToken;
       if (token) await authService.logout(userId, token);
-
-      reply.clearCookie('refreshToken', {
-        path: '/', httpOnly: true, secure: true, sameSite: 'none',
-      });
+      reply.clearCookie('refreshToken', { path: '/', httpOnly: true, secure: true, sameSite: 'none' });
       return reply.code(200).send({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
@@ -179,9 +148,7 @@ export class AuthController {
     try {
       const userId = (request.user as any).userId;
       await authService.logoutAll(userId);
-      reply.clearCookie('refreshToken', {
-        path: '/', httpOnly: true, secure: true, sameSite: 'none',
-      });
+      reply.clearCookie('refreshToken', { path: '/', httpOnly: true, secure: true, sameSite: 'none' });
       return reply.code(200).send({ success: true, message: 'Logged out from all devices' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });

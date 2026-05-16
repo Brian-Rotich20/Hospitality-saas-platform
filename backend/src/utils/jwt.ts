@@ -7,8 +7,8 @@ export interface JWTPayload {
   email:         string;
   role:          'customer' | 'vendor' | 'admin';
   emailVerified: boolean;        // ← NEW — middleware reads this
-  vendorId?:     string;
-  fullName?:     string;
+  vendorId?:     string | undefined;
+  fullName?:     string | undefined;
 }
 
 const ACCESS_TTL  = '15m';
