@@ -2,6 +2,5 @@ node_modules
 dist
 .git
 .env
-package-lock.json
 npm-debug.log
 yarn-error.log
