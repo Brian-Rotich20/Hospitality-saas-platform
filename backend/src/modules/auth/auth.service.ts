@@ -215,7 +215,7 @@ export class AuthService {
       );
     }
     const emailVerified = user.role === 'admin' ? true : (user.verified ?? false);
-    
+
     const { accessToken, refreshToken } = await buildTokens({
       id: user.id,
       email: user.email, 
@@ -260,6 +260,8 @@ export class AuthService {
     let payload: any;
     try { payload = verifyToken(refreshToken); }
     catch { throw new Error('Invalid or expired refresh token'); }
+
+    if(payload.type !== 'refresh') throw new Error('Invalid token type'); 
 
     const key    = `refresh:${payload.userId}:${refreshToken.slice(-20)}`;
     const stored = await redis.get(key) as string | null;

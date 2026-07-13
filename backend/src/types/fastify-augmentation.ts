@@ -8,6 +8,7 @@ declare module 'fastify' {
     authenticate:   (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin:   (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireVendor:  (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireVerified: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     googleOAuth2: any;
 
   }

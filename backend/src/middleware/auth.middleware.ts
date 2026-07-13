@@ -67,3 +67,15 @@ export async function requireVendor(request: FastifyRequest, reply: FastifyReply
     user.vendorId = vendor.id;
   }
 }
+
+
+export async function requireVerified(request: FastifyRequest, reply: FastifyReply) {
+  const user = request.user as any;
+  if (!user.emailVerified) {
+    return reply.code(403).send({
+      success: false,
+      error: 'Please verify your email first',
+      code: 'EMAIL_NOT_VERIFIED',
+    });
+  }
+}

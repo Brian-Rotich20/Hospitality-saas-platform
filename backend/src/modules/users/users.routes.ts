@@ -36,7 +36,7 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   // GET /api/users/me/saved — get saved listings
   fastify.get('/me/saved', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user = (req as any).user;
     const saved = await userService.getSavedListings(user.userId);
@@ -45,7 +45,7 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   // POST /api/users/me/saved/:listingId — toggle save
   fastify.post('/me/saved/:listingId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user      = (req as any).user;
     const { listingId } = req.params as { listingId: string };
@@ -55,7 +55,7 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   // GET /api/users/me/saved/:listingId — check if saved
   fastify.get('/me/saved/:listingId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user      = (req as any).user;
     const { listingId } = req.params as { listingId: string };
@@ -65,7 +65,7 @@ export async function userRoutes(fastify: FastifyInstance) {
 
   // GET /api/users/me/stats — dashboard stats
   fastify.get('/me/stats', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user  = (req as any).user;
     const stats = await userService.getCustomerStats(user.userId);

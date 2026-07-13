@@ -22,7 +22,7 @@ export async function listingRoutes(fastify: FastifyInstance) {
 
   // ✅ Static path before /:id — otherwise Fastify matches 'me' as :id
   fastify.get('/me', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVendor],
     schema: { tags: ['Listings'], description: 'Get my listings' },
   }, listingController.getMyListings.bind(listingController));
 
@@ -34,22 +34,22 @@ export async function listingRoutes(fastify: FastifyInstance) {
   // ── Vendor routes (authenticated) ─────────────────────────────────────────
 
   fastify.post('/', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVendor],
     schema: { tags: ['Listings'], description: 'Create new listing' },
   }, listingController.createListing.bind(listingController));
 
   fastify.put('/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVendor],
     schema: { tags: ['Listings'], description: 'Update listing' },
   }, listingController.updateListing.bind(listingController));
 
   fastify.patch('/:id/status', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVendor],
     schema: { tags: ['Listings'], description: 'Publish or pause listing' },
   }, listingController.updateListingStatus.bind(listingController));
 
   fastify.delete('/:id', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVendor],
     schema: { tags: ['Listings'], description: 'Delete listing' },
   }, listingController.deleteListing.bind(listingController));
 }

@@ -5,7 +5,7 @@ const payoutController = new PayoutController();
 
 export async function payoutRoutes(fastify: FastifyInstance) {
   fastify.get('/me', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified ],
     schema: {
       tags: ['Payouts'],
       description: 'Get my payouts',

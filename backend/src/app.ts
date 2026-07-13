@@ -26,7 +26,7 @@ import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.rou
 import { reviewRoutes } from './modules/reviews/reviews.routes';
 import { userRoutes } from './modules/users/users.routes';
 // ── Middleware 
-import { authenticate, requireAdmin, requireVendor } from './middleware/auth.middleware';
+import { authenticate, requireAdmin, requireVendor, requireVerified } from './middleware/auth.middleware';
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -96,6 +96,7 @@ export async function buildApp() {
   fastify.decorate('authenticate',  authenticate);
   fastify.decorate('requireAdmin',  requireAdmin);
   fastify.decorate('requireVendor', requireVendor);
+  fastify.decorate('requireVerified', requireVerified);
   fastify.decorate('db',            db);
 
 

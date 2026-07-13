@@ -9,7 +9,7 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
   // POST /api/reviews — customer submits a review (must have completed booking)
   fastify.post('/', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user = (req as any).user;
     if (user.role !== 'customer') return reply.code(403).send({ error: 'Customers only' });
@@ -36,7 +36,7 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
   // GET /api/reviews/eligibility/:listingId — can this customer review?
   fastify.get('/eligibility/:listingId', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user = (req as any).user;
     if (user.role !== 'customer') return reply.send({ success: true, data: { canReview: false } });
@@ -48,7 +48,7 @@ export async function reviewRoutes(fastify: FastifyInstance) {
 
   // POST /api/reviews/:reviewId/reply — vendor replies to a review
   fastify.post('/:reviewId/reply', {
-    preHandler: [fastify.authenticate],
+    preHandler: [fastify.authenticate, fastify.requireVerified],
   }, async (req, reply) => {
     const user = (req as any).user;
     if (user.role !== 'vendor') return reply.code(403).send({ error: 'Vendors only' });
