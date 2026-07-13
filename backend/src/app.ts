@@ -91,19 +91,6 @@ export async function buildApp() {
 
   await fastify.register(swaggerUI, { routePrefix: '/docs' });
 
-  // await fastify.register(fastifyOAuth2, {
-  //   name:        'googleOAuth2',
-  //   scope:       ['profile', 'email'],
-  //   credentials: {
-  //     client: {
-  //       id:     process.env.GOOGLE_CLIENT_ID!,
-  //       secret: process.env.GOOGLE_CLIENT_SECRET!,
-  //     },
-  //     auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
-  //   },
-  //   callbackUri: `${process.env.API_URL}/api/auth/google/callback`,
-
-  // });
 
   // ── Decorators
   fastify.decorate('authenticate',  authenticate);

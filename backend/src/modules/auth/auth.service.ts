@@ -200,7 +200,7 @@ export class AuthService {
     const valid = await comparePassword(data.password, user.passwordHash);
     if (!valid) throw new Error('Invalid email or password');
 
-    if (!user.verified) {
+    if (!user.verified && user.role !== 'admin') { //Admin can log in without verifying email
       // Re-send OTP automatically so they can verify right away
       sendCustomerOTP(user.id, user.email, user.fullName ?? 'there').catch(() => {});
 
@@ -214,9 +214,13 @@ export class AuthService {
         { code: 'EMAIL_NOT_VERIFIED', accessToken },
       );
     }
-
+    const emailVerified = user.role === 'admin' ? true : (user.verified ?? false);
+    
     const { accessToken, refreshToken } = await buildTokens({
-      id: user.id, email: user.email, role: user.role as any, emailVerified: true,
+      id: user.id,
+      email: user.email, 
+      role: user.role as any, 
+      emailVerified: true,
     });
     return { user: safeUser(user), accessToken, refreshToken };
   }

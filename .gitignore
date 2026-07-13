@@ -21,3 +21,4 @@ pids
 # My Notes that should be ignored
 steps.txt
 propmpt.txt
+fix-enum.js
