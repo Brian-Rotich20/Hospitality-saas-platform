@@ -8,14 +8,10 @@ import { UploadResult }  from '../upload/upload.types';
 import {
   sendVendorVerificationEmail,
   sendVendorApprovedEmail,
-  sendVendorRejectedEmail,
 } from '../../utils/email';
 import { signAccessToken, signRefreshToken } from '../../utils/jwt';
 import { redis }         from '../../config/redis';
-import type {
-  VendorApplicationInput, PayoutDetailsInput,
-  UpdateVendorInput,      VendorReviewInput,
-} from './vendors.schema';
+import type { VendorApplicationInput, PayoutDetailsInput, UpdateVendorInput,} from './vendors.schema';
 import type { VendorFilters } from './vendors.types';
 
 const OTP_TTL         = 15 * 60;
@@ -272,16 +268,7 @@ export class VendorService {
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────────
-  async getPendingVendors() {
-    const rows = await db.select({
-      id: vendors.id, userId: vendors.userId, businessName: vendors.businessName,
-      description: vendors.description, phoneNumber: vendors.phoneNumber, city: vendors.city,
-      status: vendors.status, verified: vendors.verified, createdAt: vendors.createdAt,
-      userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
-    }).from(vendors).leftJoin(users, eq(users.id, vendors.userId))
-      .where(eq(vendors.status, 'pending')).orderBy(desc(vendors.createdAt));
-    return rows.map(r => ({ ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } }));
-  }
+
 
   async getAllVendors(filters?: VendorFilters) {
     const conditions: any[] = [];
@@ -313,40 +300,4 @@ export class VendorService {
     return { ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } };
   }
 
-  async reviewVendorApplication(vendorId: string, adminId: string, data: VendorReviewInput) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
-    if (!vendor) throw new Error('Vendor not found');
-
-    const [updated] = await db.update(vendors)
-      .set({ status: data.status, rejectionReason: data.rejectionReason ?? null, approvedBy: data.status === 'approved' ? adminId : null, approvedAt: data.status === 'approved' ? new Date() : null, updatedAt: new Date() })
-      .where(eq(vendors.id, vendorId)).returning();
-
-    const newRole = data.status === 'approved' ? 'vendor' : 'customer';
-    await db.update(users).set({ role: newRole }).where(eq(users.id, vendor.userId));
-
-    const user = await db.query.users.findFirst({ where: eq(users.id, vendor.userId), columns: { email: true } });
-    if (user?.email) {
-      if (data.status === 'approved') {
-        await sendVendorApprovedEmail({ to: user.email, businessName: vendor.businessName }).catch(() => {});
-      } else {
-        await sendVendorRejectedEmail({ to: user.email, businessName: vendor.businessName, reason: data.rejectionReason }).catch(() => {});
-      }
-    }
-
-    await this.invalidateCache(vendor.userId, vendorId);
-    return updated;
-  }
-
-  async suspendVendor(vendorId: string, reason: string) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
-    if (!vendor) throw new Error('Vendor not found');
-
-    const [updated] = await db.update(vendors)
-      .set({ status: 'suspended', rejectionReason: reason, updatedAt: new Date() })
-      .where(eq(vendors.id, vendorId)).returning();
-
-    await db.update(users).set({ role: 'customer' }).where(eq(users.id, vendor.userId));
-    await this.invalidateCache(vendor.userId, vendorId);
-    return updated;
-  }
 }

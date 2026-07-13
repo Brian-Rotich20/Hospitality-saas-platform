@@ -62,17 +62,13 @@ export async function vendorRoutes(fastify: FastifyInstance) {
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
 const vendorQuerySchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected', 'suspended']).optional(),
+  status: z.enum(['approved', 'suspended']).optional(),
   limit:  z.coerce.number().int().min(1).max(100).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
 
 export async function vendorAdminRoutes(fastify: FastifyInstance) {
-  fastify.get('/pending', {
-    preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: { tags: ['Admin - Vendors'] },
-  }, vendorController.getPendingVendors.bind(vendorController));
-
+  
   fastify.get('/', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: { tags: ['Admin - Vendors'], querystring: vendorQuerySchema },
@@ -83,11 +79,7 @@ export async function vendorAdminRoutes(fastify: FastifyInstance) {
     schema: { tags: ['Admin - Vendors'] },
   }, vendorController.getVendorById.bind(vendorController));
 
-  fastify.put('/:vendorId/review', {
-    preHandler: [fastify.authenticate, fastify.requireAdmin],
-    schema: { tags: ['Admin - Vendors'] },
-  }, vendorController.reviewVendor.bind(vendorController));
-
+  
   fastify.put('/:vendorId/suspend', {
     preHandler: [fastify.authenticate, fastify.requireAdmin],
     schema: { tags: ['Admin - Vendors'] },

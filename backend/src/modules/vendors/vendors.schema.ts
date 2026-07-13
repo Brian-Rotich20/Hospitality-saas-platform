@@ -41,12 +41,7 @@ export const payoutDetailsSchema = z.discriminatedUnion('payoutMethod', [
   }),
 ]);
 
-export const vendorReviewSchema = z.object({
-  status:          z.enum(['approved', 'rejected']),
-  rejectionReason: z.string().min(10, 'Please provide a reason (min 10 chars)').optional(),
-});
 
 export type VendorApplicationInput = z.infer<typeof vendorApplicationSchema>;
 export type UpdateVendorInput      = z.infer<typeof updateVendorSchema>;
 export type PayoutDetailsInput     = z.infer<typeof payoutDetailsSchema>;
-export type VendorReviewInput      = z.infer<typeof vendorReviewSchema>;

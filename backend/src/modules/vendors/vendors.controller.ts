@@ -142,14 +142,7 @@ export class VendorController {
   }
 
   // ── Admin routes ───────────────────────────────────────────────────────────
-  async getPendingVendors(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const vendors = await vendorService.getPendingVendors();
-      return reply.code(200).send({ success: true, data: vendors });
-    } catch (error: any) {
-      return reply.code(400).send({ success: false, error: error.message });
-    }
-  }
+
 
   async getAllVendors(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -175,26 +168,6 @@ export class VendorController {
     }
   }
 
-  async reviewVendor(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { vendorId } = request.params as { vendorId: string };
-      const adminId      = (request.user as any).userId;
-      const body = request.body as any;
-      const { status, rejectionReason } = body;
-
-      if (!status || !['approved', 'rejected'].includes(status)) {
-        return reply.code(422).send({ success: false, error: 'status must be "approved" or "rejected"' });
-      }
-      if (status === 'rejected' && (!rejectionReason || rejectionReason.trim().length < 10)) {
-        return reply.code(422).send({ success: false, error: 'rejectionReason must be at least 10 characters' });
-      }
-
-      const vendor = await vendorService.reviewVendorApplication(vendorId, adminId, { status, rejectionReason });
-      return reply.code(200).send({ success: true, message: `Vendor ${status} successfully`, data: vendor });
-    } catch (error: any) {
-      return reply.code(400).send({ success: false, error: error.message });
-    }
-  }
 
   async suspendVendor(request: FastifyRequest, reply: FastifyReply) {
     try {
