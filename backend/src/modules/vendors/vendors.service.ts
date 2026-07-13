@@ -285,6 +285,19 @@ export class VendorService {
     return rows.map(r => ({ ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } }));
   }
 
+ async suspendVendor(vendorId: string, reason: string) {
+    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
+    if (!vendor) throw new Error('Vendor not found');
+
+    const [updated] = await db.update(vendors)
+      .set({ status: 'suspended', rejectionReason: reason, updatedAt: new Date() })
+      .where(eq(vendors.id, vendorId)).returning();
+
+    await db.update(users).set({ role: 'customer' }).where(eq(users.id, vendor.userId));
+    await this.invalidateCache(vendor.userId, vendorId);
+    return updated;
+  }
+
   async getVendorById(vendorId: string) {
     const rows = await db.select({
       id: vendors.id, userId: vendors.userId, businessName: vendors.businessName,
