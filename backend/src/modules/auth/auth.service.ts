@@ -97,7 +97,7 @@ export class AuthService {
 
     try {
       const passwordHash = await hashPassword(data.password);
-      const role = data.intent === 'vendor' ? 'vendor' : 'customer';
+      const role = 'customer';
 
       const [user] = await db.insert(users).values({
         fullName: data.fullName, email: data.email, phone: data.phone,
