@@ -5,6 +5,7 @@ import { AuthController }    from './auth.controller';
 import { AuthService }       from './auth.service';
 import { redis }             from '../../config/redis';
 import { VendorService }     from '../vendors/vendors.service';
+import { z } from 'zod';   // ← ADD if not already imported
 
 const authController = new AuthController();
 const authService    = new AuthService();
@@ -43,7 +44,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['Auth'],
-      body: { type: 'object', required: ['otp'], properties: { otp: { type: 'string', minLength: 6, maxLength: 6 } } },
+       body: z.object({ otp: z.string().min(6).max(6) }),
     },
   }, authController.verifyEmail.bind(authController));
 

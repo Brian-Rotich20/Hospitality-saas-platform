@@ -23,7 +23,7 @@ export async function vendorRoutes(fastify: FastifyInstance) {
     preHandler: [fastify.authenticate],
     schema: {
       tags: ['Vendors'],
-      body: { type: 'object', required: ['otp'], properties: { otp: { type: 'string' } } },
+      body: z.object({ otp: z.string().min(6).max(6) }),
     },
   }, vendorController.verifyEmail.bind(vendorController));
 
