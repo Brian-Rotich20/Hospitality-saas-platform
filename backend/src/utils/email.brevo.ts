@@ -5,10 +5,9 @@ const brevo = new BrevoClient({
   apiKey: process.env.BREVO_API_KEY!,
 });
 
-const FROM_EMAIL = 'inovasoftwares205@gmail.com'; 
+const FROM_EMAIL = 'support@inovasoftwares.co.ke'; 
 const FROM_NAME = 'Inova Softwares'; 
 const APP_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
-
 
 async function send(to: string, subject: string, html: string) {
   try {
