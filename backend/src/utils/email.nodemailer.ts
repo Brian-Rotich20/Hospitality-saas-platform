@@ -1,13 +1,22 @@
 // src/utils/email.nodemailer.ts
 import nodemailer from 'nodemailer';
+import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
+const transportOptions: SMTPTransport.Options = {
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-});
+} as SMTPTransport.Options;
+
+// Cast to any only for the family option, which nodemailer passes through to Node's socket layer
+  const transporter = nodemailer.createTransport({
+    ...transportOptions,
+    family: 4,
+  } as any);
 
 const FROM    = process.env.EMAIL_FROM_NAME
   ? `${process.env.EMAIL_FROM_NAME} <${process.env.EMAIL_USER}>`

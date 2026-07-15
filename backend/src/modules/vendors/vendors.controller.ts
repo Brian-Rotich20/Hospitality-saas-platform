@@ -42,6 +42,14 @@ export class VendorController {
 
       const result = await vendorService.verifyVendorOTP(user.userId, otp);
 
+       reply.setCookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure:   true,
+        sameSite: 'none' as const,
+        maxAge:   60 * 60 * 24 * 7,
+        path:     '/',
+      });
+
       return reply.send({
         success: true,
         message: 'Email verified! Your vendor account is now active.',
