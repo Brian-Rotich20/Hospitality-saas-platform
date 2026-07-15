@@ -78,6 +78,11 @@ const envSchema = z.object({
   EMAIL_USER:      z.string().optional(),
   EMAIL_PASS:      z.string().optional(),
   EMAIL_FROM_NAME: z.string().optional(),
+
+  // ── Brevo (formerly Sendinblue) API key
+  BREVO_API_KEY: z.string().optional(),
+  MAIL_FROM_NAME: z.string().optional(),
+  MAIL_FROM_EMAIL: z.string().email().optional(),
 });
 
 export const env = envSchema.parse(process.env);

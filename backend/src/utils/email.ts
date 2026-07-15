@@ -11,4 +11,4 @@ export {
   sendVendorRejectedEmail,
   sendBookingConfirmationEmail,
   sendNewBookingNotificationEmail,
-} from './email.nodemailer';
+} from './email.brevo';

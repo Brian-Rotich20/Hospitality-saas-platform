@@ -1,6 +1,7 @@
 // src/modules/vendors/vendors.controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { VendorService } from './vendors.service';
+import { refreshCookieOptions } from '../../utils/cookies';
 import {
   vendorApplicationSchema,
   updateVendorSchema,
@@ -42,13 +43,7 @@ export class VendorController {
 
       const result = await vendorService.verifyVendorOTP(user.userId, otp);
 
-       reply.setCookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure:   true,
-        sameSite: 'none' as const,
-        maxAge:   60 * 60 * 24 * 7,
-        path:     '/',
-      });
+       reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
 
       return reply.send({
         success: true,

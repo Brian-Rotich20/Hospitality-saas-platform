@@ -2,18 +2,11 @@
 import { type FastifyReply, type FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
+import { refreshCookieOptions, clearRefreshCookieOptions } from '../../utils/cookies';
+
 
 const authService = new AuthService();
 
-function refreshCookieOptions() {
-  return {
-    httpOnly: true,
-    secure:   true,
-    sameSite: 'none' as const,
-    maxAge:   60 * 60 * 24 * 7,
-    path:     '/',
-  };
-}
 
 export class AuthController {
 
@@ -125,7 +118,7 @@ export class AuthController {
 
       return reply.code(200).send({ success: true, data: { accessToken: result.accessToken } });
     } catch (error: any) {
-      reply.clearCookie('refreshToken', { path: '/' });
+      reply.clearCookie('refreshToken', clearRefreshCookieOptions());
       return reply.code(401).send({ success: false, error: error.message });
     }
   }
@@ -136,7 +129,7 @@ export class AuthController {
       const userId = (request.user as any).userId;
       const token  = (request.cookies as any)?.refreshToken ?? (request.body as any)?.refreshToken;
       if (token) await authService.logout(userId, token);
-      reply.clearCookie('refreshToken', { path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+      reply.clearCookie('refreshToken', );
       return reply.code(200).send({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
@@ -148,7 +141,7 @@ export class AuthController {
     try {
       const userId = (request.user as any).userId;
       await authService.logoutAll(userId);
-      reply.clearCookie('refreshToken', { path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+      reply.clearCookie('refreshToken', clearRefreshCookieOptions());
       return reply.code(200).send({ success: true, message: 'Logged out from all devices' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
