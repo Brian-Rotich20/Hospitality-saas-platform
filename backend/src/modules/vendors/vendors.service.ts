@@ -38,10 +38,6 @@ export class VendorService {
   async applyAsVendor(userId: string, data: VendorApplicationInput) {
     const existing = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
     if (existing) {
-      if (existing.status === 'pending_verification') {
-        await this._sendOTP(userId, existing.id, data.businessName).catch(err => console.error('[OTP resend failed]', err));
-        return { vendor: existing, otpSent: true };
-      }
       throw new Error('You already have a vendor application');
     }
 
@@ -61,16 +57,29 @@ export class VendorService {
       phoneNumber:    data.phoneNumber,
       whatsappNumber: data.whatsappNumber,
       website:        data.website,
-      status:         'pending_verification',
+      status:         'approved',
       verified:       false,
     }).returning();
 
     if (!vendor) throw new Error('Failed to create vendor application. Please try again.');
 
+    await db.update(users)
+      .set({role: 'vendor', updatedAt: new Date()})
+      .where(eq(users.id, userId));
+  
+
     await this._sendOTP(userId, vendor.id, data.businessName, user.email)
       .catch(err => console.error('[OTP email failed]', err));
 
-    return { vendor, otpSent: true };
+       const accessToken  = signAccessToken({
+      userId, email: user.email, role: 'vendor', emailVerified: false, vendorId: vendor.id,
+      });
+      const refreshToken = signRefreshToken({
+        userId, email: user.email, role: 'vendor', emailVerified: false, vendorId: vendor.id,
+      });
+      await redis.setex(`refresh:${userId}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
+
+    return { vendor, otpSent: true, accessToken, refreshToken };
   }
 
   // ── Send OTP (internal) ────────────────────────────────────────────────────

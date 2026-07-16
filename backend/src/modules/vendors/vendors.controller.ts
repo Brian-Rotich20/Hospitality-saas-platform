@@ -19,6 +19,10 @@ export class VendorController {
       const body   = vendorApplicationSchema.parse(request.body);
       const vendor = await vendorService.applyAsVendor(userId, body);
 
+      if(vendor.refreshToken) {
+        reply.setCookie('refreshToken', vendor.refreshToken, refreshCookieOptions());
+      }
+
       return reply.code(201).send({
         success: true,
         message: 'Vendor application submitted. Check your email for a verification code.',

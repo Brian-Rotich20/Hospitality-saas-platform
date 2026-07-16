@@ -22,3 +22,5 @@ pids
 steps.txt
 propmpt.txt
 fix-enum.js
+test
+test-email.ts
