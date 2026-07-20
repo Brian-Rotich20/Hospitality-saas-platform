@@ -129,7 +129,7 @@ export class AuthController {
       const userId = (request.user as any).userId;
       const token  = (request.cookies as any)?.refreshToken ?? (request.body as any)?.refreshToken;
       if (token) await authService.logout(userId, token);
-      reply.clearCookie('refreshToken', );
+      reply.clearCookie('refreshToken', clearRefreshCookieOptions());
       return reply.code(200).send({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });

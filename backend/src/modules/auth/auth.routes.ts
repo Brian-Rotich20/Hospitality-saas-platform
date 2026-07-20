@@ -11,15 +11,7 @@ const authController = new AuthController();
 const authService    = new AuthService();
 const vendorService  = new VendorService();
 
-function refreshCookieOptions() {
-  return {
-    httpOnly: true,
-    secure:   true,
-    sameSite: 'none' as const,
-    maxAge:   60 * 60 * 24 * 7,
-    path:     '/',
-  };
-}
+
 
 export async function authRoutes(fastify: FastifyInstance) {
 
@@ -121,7 +113,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         } catch { /* already exists */ }
       }
 
-      reply.setCookie('refreshToken', result.refreshToken, refreshCookieOptions());
+      reply.setCookie('refreshToken', result.refreshToken);
 
       const dest = intent === 'vendor'
         ? `${base}/vendor/onboarding?token=${result.accessToken}`

@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:clear": "tsx src/db/clear.ts",
     "db:reset": "drizzle-kit push --force",
     "seed:reset": "npm run db:reset && npm run seed"
   },
