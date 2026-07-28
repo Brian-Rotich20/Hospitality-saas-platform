@@ -1,6 +1,6 @@
 import { eq, isNull, and } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { categories } from '../../db/schema.js';
+import { categories } from '../../db/schema/index.js';
 import { getCache, setCache, delCache } from '../../config/redis.js';
 import type { CreateCategoryInput, UpdateCategoryInput } from './categories.schema.js';
 

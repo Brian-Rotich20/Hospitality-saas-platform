@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { PaymentService } from './payments.service.js';
 import { db } from '../../config/database.js';
-import { vendors } from '../../db/schema.js';
+import { vendors } from '../../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
 const paymentService = new PaymentService();

@@ -1,7 +1,7 @@
 // src/modules/auth/auth.service.ts
 import { eq } from 'drizzle-orm';
 import { db }  from '../../config/database.js';
-import { users, vendors }      from '../../db/schema.js';
+import { users, vendors }      from '../../db/schema/index.js';
 import { hashPassword, comparePassword } from '../../utils/password.js';
 import { redis }               from '../../config/redis.js';
 import { sendCustomerVerificationEmail } from '../../utils/email.js';

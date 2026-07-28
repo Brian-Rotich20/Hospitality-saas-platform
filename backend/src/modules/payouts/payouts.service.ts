@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { eq, and, lte, inArray, sql } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { payouts, bookings, vendors } from '../../db/schema.js';
+import { payouts, bookings, vendors } from '../../db/schema/index.js';
 import { env } from '../../config/env.js';
 import type { PayoutCalculation } from './payouts.types.js';
 

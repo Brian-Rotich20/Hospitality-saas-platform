@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { db }       from '../../config/database.js';
-import { listings, vendors, categories } from '../../db/schema.js';
+import { listings, vendors, categories } from '../../db/schema/index.js';
 import { setCache, getCache, delCache }  from '../../config/redis.js';
 import type { ListingFilters }           from './listings.types.js';
 import type { CreateListingInput, UpdateListingInput } from './listings.schema.js';

@@ -2,7 +2,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { payments, bookings } from '../../db/schema.js';
+import { payments, bookings } from '../../db/schema/index.js';
 import { env } from '../../config/env.js';
 import type { InitiateMpesaPaymentInput } from './payments.schema.js';
 
