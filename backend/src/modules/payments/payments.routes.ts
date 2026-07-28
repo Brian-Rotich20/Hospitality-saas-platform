@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { PaymentController } from './payments.controller';
-import { initiateMpesaPaymentSchema } from './payments.schema';
+import { PaymentController } from './payments.controller.js';
+import { initiateMpesaPaymentSchema } from './payments.schema.js';
 
 const paymentController = new PaymentController();
 

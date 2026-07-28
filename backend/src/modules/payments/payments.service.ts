@@ -1,10 +1,10 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import { eq, and } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { payments, bookings } from '../../db/schema';
-import { env } from '../../config/env';
-import type { InitiateMpesaPaymentInput } from './payments.schema';
+import { db } from '../../config/database.js';
+import { payments, bookings } from '../../db/schema.js';
+import { env } from '../../config/env.js';
+import type { InitiateMpesaPaymentInput } from './payments.schema.js';
 
 export class PaymentService {
   private readonly FLUTTERWAVE_BASE_URL = 'https://api.flutterwave.com/v3';

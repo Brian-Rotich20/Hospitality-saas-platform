@@ -1,9 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
-import { db }       from '../../config/database';
-import { listings, vendors, categories } from '../../db/schema';
-import { setCache, getCache, delCache }  from '../../config/redis';
-import type { ListingFilters }           from './listings.types';
-import type { CreateListingInput, UpdateListingInput } from './listings.schema';
+import { db }       from '../../config/database.js';
+import { listings, vendors, categories } from '../../db/schema.js';
+import { setCache, getCache, delCache }  from '../../config/redis.js';
+import type { ListingFilters }           from './listings.types.js';
+import type { CreateListingInput, UpdateListingInput } from './listings.schema.js';
 
 const LISTING_SELECT = `
   l.id, l.vendor_id, l.category_id, l.title, l.slug, l.description,

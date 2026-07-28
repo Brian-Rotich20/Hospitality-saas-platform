@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { PayoutService } from '../modules/payouts/payouts.service';
+import { PayoutService } from '../modules/payouts/payouts.service.js';
 
 const payoutService = new PayoutService();
 

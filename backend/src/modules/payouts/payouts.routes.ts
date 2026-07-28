@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { PayoutController } from './payouts.controller';
+import { PayoutController } from './payouts.controller.js';
 
 const payoutController = new PayoutController();
 

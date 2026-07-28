@@ -4,12 +4,12 @@ import {
   timestamp, boolean, index, unique,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { listings }  from './listings';
-import { vendors }   from './vendors';
-import { bookings }  from './bookings';
+import { listings }  from './listings.js';
+import { vendors }   from './vendors.js';
+import { bookings }  from './bookings.js';
 
 // users imported separately to avoid circular
-import { users } from './users';
+import { users } from './users.js';
 
 export const reviews = pgTable('reviews', {
   id:         uuid('id').primaryKey().defaultRandom(),

@@ -3,8 +3,8 @@ import {
   pgTable, uuid, timestamp, index, unique,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { users }    from './users';
-import { listings } from './listings';
+import { users }    from './users.js';
+import { listings } from './listings.js';
 
 export const savedListings = pgTable('saved_listings', {
   id:         uuid('id').primaryKey().defaultRandom(),

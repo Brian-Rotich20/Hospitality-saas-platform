@@ -1,14 +1,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { BookingService } from './bookings.service';
+import { BookingService } from './bookings.service.js';
 import { eq } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { vendors } from '../../db/schema';
+import { db } from '../../config/database.js';
+import { vendors } from '../../db/schema.js';
 import {
   createBookingSchema,
   declineBookingSchema,
   cancelBookingSchema,
   getBookingsSchema,
-} from './bookings.schema';
+} from './bookings.schema.js';
 
 const bookingService = new BookingService();
 

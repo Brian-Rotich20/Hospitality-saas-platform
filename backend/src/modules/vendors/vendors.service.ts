@@ -1,18 +1,18 @@
 // src/modules/vendors/vendors.service.ts
 import { eq, and, desc } from 'drizzle-orm';
-import { db }            from '../../config/database';
-import { vendors, vendorDocuments } from '../../db/schema/vendors';
-import { users }                    from '../../db/schema/users';
-import { setCache, getCache, delCache } from '../../config/redis';
-import { UploadResult }  from '../upload/upload.types';
+import { db }            from '../../config/database.js';
+import { vendors, vendorDocuments } from '../../db/schema/vendors.js';
+import { users }                    from '../../db/schema/users.js';
+import { setCache, getCache, delCache } from '../../config/redis.js';
+import { UploadResult }  from '../upload/upload.types.js';
 import {
   sendVendorVerificationEmail,
   sendVendorApprovedEmail,
-} from '../../utils/email';
-import { signAccessToken, signRefreshToken } from '../../utils/jwt';
-import { redis }         from '../../config/redis';
-import type { VendorApplicationInput, PayoutDetailsInput, UpdateVendorInput,} from './vendors.schema';
-import type { VendorFilters } from './vendors.types';
+} from '../../utils/email.js';
+import { signAccessToken, signRefreshToken } from '../../utils/jwt.js';
+import { redis }         from '../../config/redis.js';
+import type { VendorApplicationInput, PayoutDetailsInput, UpdateVendorInput,} from './vendors.schema.js';
+import type { VendorFilters } from './vendors.types.js';
 
 const OTP_TTL         = 15 * 60;
 const OTP_RESEND_WAIT = 60;

@@ -1,10 +1,10 @@
 // src/modules/auth/auth.routes.ts
 import { randomUUID }        from 'crypto';
 import type { FastifyInstance } from 'fastify';
-import { AuthController }    from './auth.controller';
-import { AuthService }       from './auth.service';
-import { redis }             from '../../config/redis';
-import { VendorService }     from '../vendors/vendors.service';
+import { AuthController }    from './auth.controller.js';
+import { AuthService }       from './auth.service.js';
+import { redis }             from '../../config/redis.js';
+import { VendorService }     from '../vendors/vendors.service.js';
 import { z } from 'zod';   // ← ADD if not already imported
 
 const authController = new AuthController();

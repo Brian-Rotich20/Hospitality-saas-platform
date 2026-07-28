@@ -1,5 +1,5 @@
-import { EmailService } from './email.service';
-import { SmsService } from './sms.service';
+import { EmailService } from './email.service.js';
+import { SmsService } from './sms.service.js';
 
 const emailService = new EmailService();
 const smsService = new SmsService();

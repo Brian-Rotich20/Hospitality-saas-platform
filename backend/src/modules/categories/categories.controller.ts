@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { CategoryService } from './categories.service';
-import { createCategorySchema, updateCategorySchema } from './categories.schema';
+import { CategoryService } from './categories.service.js';
+import { createCategorySchema, updateCategorySchema } from './categories.schema.js';
 
 const categoryService = new CategoryService();
 

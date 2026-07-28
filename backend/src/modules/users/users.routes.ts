@@ -1,7 +1,7 @@
 // src/modules/users/users.routes.ts
 import { FastifyInstance } from 'fastify';
 import { z }              from 'zod';
-import { UserService }    from './users.service';
+import { UserService }    from './users.service.js';
 
 const userService = new UserService();
 

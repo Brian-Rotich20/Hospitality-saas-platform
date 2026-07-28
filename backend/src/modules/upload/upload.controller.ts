@@ -1,8 +1,8 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { MultipartFile } from '@fastify/multipart';
-import { UploadService } from './upload.service';
-import type { UploadImageInput, UploadDocumentInput, DeleteFileInput } from './upload.schema';
-import type { FileMetadata, UploadType } from './upload.types';
+import { UploadService } from './upload.service.js';
+import type { UploadImageInput, UploadDocumentInput, DeleteFileInput } from './upload.schema.js';
+import type { FileMetadata, UploadType } from './upload.types.js';
 
 const uploadService = new UploadService();
 

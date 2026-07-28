@@ -2,8 +2,8 @@
 // ✅ Add admin bookings endpoint
 
 import { FastifyInstance } from 'fastify';
-import { db }             from '../../config/database';
-import { bookings, listings, users } from '../../db/schema';
+import { db }             from '../../config/database.js';
+import { bookings, listings, users } from '../../db/schema.js';
 import { eq, desc }       from 'drizzle-orm';
 
 export async function bookingAdminRoutes(fastify: FastifyInstance) {

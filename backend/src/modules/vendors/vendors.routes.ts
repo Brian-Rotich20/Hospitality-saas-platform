@@ -1,12 +1,12 @@
 // src/modules/vendors/vendors.routes.ts
 import { FastifyInstance } from 'fastify';
 import { z }               from 'zod';
-import { VendorController } from './vendors.controller';
+import { VendorController } from './vendors.controller.js';
 import {
   vendorApplicationSchema,
   payoutDetailsSchema,
   updateVendorSchema,
-} from './vendors.schema';
+} from './vendors.schema.js';
 
 const vendorController = new VendorController();
 

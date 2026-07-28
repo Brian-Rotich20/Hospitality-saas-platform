@@ -3,8 +3,8 @@ import {
   timestamp, jsonb, pgEnum, boolean, index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { vendors } from './vendors';
-import { categories } from './categories';
+import { vendors } from './vendors.js';
+import { categories } from './categories.js';
 
 export const productStatusEnum = pgEnum('product_status', [
   'draft',

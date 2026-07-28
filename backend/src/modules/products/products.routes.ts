@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { ProductController } from './products.controller';
+import { ProductController } from './products.controller.js';
 
 const productController = new ProductController();
 

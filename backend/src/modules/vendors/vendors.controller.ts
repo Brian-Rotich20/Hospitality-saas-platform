@@ -1,12 +1,12 @@
 // src/modules/vendors/vendors.controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { VendorService } from './vendors.service';
-import { refreshCookieOptions } from '../../utils/cookies';
+import { VendorService } from './vendors.service.js';
+import { refreshCookieOptions } from '../../utils/cookies.js';
 import {
   vendorApplicationSchema,
   updateVendorSchema,
   payoutDetailsSchema,
-} from './vendors.schema';
+} from './vendors.schema.js';
 
 const vendorService = new VendorService();
 

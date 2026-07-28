@@ -1,9 +1,9 @@
 // src/modules/users/users.service.ts
 import { eq, and } from 'drizzle-orm';
-import { db }      from '../../config/database';
-import { users }   from '../../db/schema/users';
-import { savedListings } from '../../db/schema/savedListings';
-import { listings }      from '../../db/schema/listings';
+import { db }      from '../../config/database.js';
+import { users }   from '../../db/schema/users.js';
+import { savedListings } from '../../db/schema/savedListings.js';
+import { listings }      from '../../db/schema/listings.js';
 
 export class UserService {
 
@@ -100,7 +100,7 @@ export class UserService {
 
   // ── Customer stats (for dashboard) ────────────────────────────────────────
   async getCustomerStats(userId: string) {
-    const { bookings } = await import('../../db/schema/bookings');
+    const { bookings } = await import('../../db/schema/bookings.js');
     const { inArray, count, eq: eqOp, and: andOp } = await import('drizzle-orm');
 
     const allBookings = await db.query.bookings.findMany({

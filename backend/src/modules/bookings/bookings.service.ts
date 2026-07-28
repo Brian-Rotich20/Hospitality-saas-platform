@@ -1,10 +1,10 @@
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { bookings, listings, users, vendors } from '../../db/schema';
-import { AvailabilityService } from '../availability/availability.service';
-import { PayoutService } from '../payouts/payouts.service';
-import type { CreateBookingInput, DeclineBookingInput, CancelBookingInput, GetBookingsInput } from './bookings.schema';
-import type { PricingBreakdown } from './bookings.types';
+import { db } from '../../config/database.js';
+import { bookings, listings, users, vendors } from '../../db/schema.js';
+import { AvailabilityService } from '../availability/availability.service.js';
+import { PayoutService } from '../payouts/payouts.service.js';
+import type { CreateBookingInput, DeclineBookingInput, CancelBookingInput, GetBookingsInput } from './bookings.schema.js';
+import type { PricingBreakdown } from './bookings.types.js';
 
 const availabilityService = new AvailabilityService();
 const payoutService       = new PayoutService();

@@ -1,12 +1,12 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { ProductService } from './products.service';
+import { ProductService } from './products.service.js';
 import {
   createProductSchema,
   updateProductSchema,
   updateProductStatusSchema,
   searchProductsSchema,
   updateInventorySchema,
-} from './products.schema';
+} from './products.schema.js';
 
 const productService = new ProductService();
 

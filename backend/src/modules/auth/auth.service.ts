@@ -1,12 +1,12 @@
 // src/modules/auth/auth.service.ts
 import { eq } from 'drizzle-orm';
-import { db }  from '../../config/database';
-import { users, vendors }      from '../../db/schema';
-import { hashPassword, comparePassword } from '../../utils/password';
-import { redis }               from '../../config/redis';
-import { sendCustomerVerificationEmail } from '../../utils/email';
-import type { RegisterInput, LoginInput } from './auth.schema';
-import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt';
+import { db }  from '../../config/database.js';
+import { users, vendors }      from '../../db/schema.js';
+import { hashPassword, comparePassword } from '../../utils/password.js';
+import { redis }               from '../../config/redis.js';
+import { sendCustomerVerificationEmail } from '../../utils/email.js';
+import type { RegisterInput, LoginInput } from './auth.schema.js';
+import { signAccessToken, signRefreshToken, verifyToken } from '../../utils/jwt.js';
 
 const REFRESH_TTL_SECS = 60 * 60 * 24 * 7;
 const OTP_TTL          = 15 * 60;

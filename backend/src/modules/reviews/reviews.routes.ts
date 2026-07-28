@@ -1,7 +1,7 @@
 // src/modules/reviews/reviews.routes.ts
 import { FastifyInstance } from 'fastify';
-import { ReviewService }   from './reviews.service';
-import { createReviewSchema, vendorReplySchema } from './reviews.schema';
+import { ReviewService }   from './reviews.service.js';
+import { createReviewSchema, vendorReplySchema } from './reviews.schema.js';
 
 const reviewService = new ReviewService();
 

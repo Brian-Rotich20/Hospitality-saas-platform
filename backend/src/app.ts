@@ -1,7 +1,7 @@
-import './types/fastify-augmentation';
-import { db } from './config/database';
+import './types/fastify-augmentation.js';
+import { db } from './config/database.js';
 import Fastify from 'fastify';
-import { env } from './config/env';
+import { env } from './config/env.js';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
@@ -9,24 +9,24 @@ import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
-import { hashPassword } from './utils/password'; // adjust path if different
-import { users }      from './db/schema/users';
-import { categories } from './db/schema/categories'; // at top of file
+import { hashPassword } from './utils/password.js'; // adjust path if different
+import { users }      from './db/schema/users.js';
+import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
 // ── Route imports 
-import { authRoutes }                        from './modules/auth/auth.routes';
-import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes';
-import { uploadRoutes }                      from './modules/upload/upload.routes';
-import { listingRoutes }                     from './modules/listings/listings.routes';
-import { categoryRoutes }                    from './modules/categories/categories.routes';  // ✅ fixed
-import { productRoutes }                     from './modules/products/products.routes';       // ✅ added
-import { availabilityRoutes }                from './modules/availability/availability.routes';
-import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes';
-import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes';
-import { reviewRoutes } from './modules/reviews/reviews.routes';
-import { userRoutes } from './modules/users/users.routes';
+import { authRoutes }                        from './modules/auth/auth.routes.js';
+import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes.js';
+import { uploadRoutes }                      from './modules/upload/upload.routes.js';
+import { listingRoutes }                     from './modules/listings/listings.routes.js';
+import { categoryRoutes }                    from './modules/categories/categories.routes.js';  // ✅ fixed
+import { productRoutes }                     from './modules/products/products.routes.js';       // ✅ added
+import { availabilityRoutes }                from './modules/availability/availability.routes.js';
+import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes.js';
+import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes.js';
+import { reviewRoutes } from './modules/reviews/reviews.routes.js';
+import { userRoutes } from './modules/users/users.routes.js';
 // ── Middleware 
-import { authenticate, requireAdmin, requireVendor, requireVerified } from './middleware/auth.middleware';
+import { authenticate, requireAdmin, requireVendor, requireVerified } from './middleware/auth.middleware.js';
 
 export async function buildApp() {
   const fastify = Fastify({

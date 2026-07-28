@@ -1,7 +1,7 @@
 import { pgTable, uuid, timestamp, integer, decimal, text, pgEnum, index, varchar } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { listings } from './listings';
-import { users } from './users';
+import { listings } from './listings.js';
+import { users } from './users.js';
 
 export const bookingStatusEnum = pgEnum('booking_status', [
   'pending', 'confirmed', 'completed', 'cancelled', 'declined', 'disputed',

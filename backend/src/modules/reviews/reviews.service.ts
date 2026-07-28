@@ -1,12 +1,12 @@
 // src/modules/reviews/reviews.service.ts
 import { eq, and, avg, count, sql } from 'drizzle-orm';
-import { db }      from '../../config/database';
-import { reviews } from '../../db/schema/reviews';
-import { bookings } from '../../db/schema/bookings';
-import { listings } from '../../db/schema/listings';
-import { vendors }  from '../../db/schema/vendors';
-import { delCache } from '../../config/redis';
-import type { CreateReviewInput, VendorReplyInput } from './reviews.schema';
+import { db }      from '../../config/database.js';
+import { reviews } from '../../db/schema/reviews.js';
+import { bookings } from '../../db/schema/bookings.js';
+import { listings } from '../../db/schema/listings.js';
+import { vendors }  from '../../db/schema/vendors.js';
+import { delCache } from '../../config/redis.js';
+import type { CreateReviewInput, VendorReplyInput } from './reviews.schema.js';
 
 export class ReviewService {
 

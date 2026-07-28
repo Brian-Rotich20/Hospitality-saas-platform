@@ -1,8 +1,8 @@
 // src/modules/auth/auth.controller.ts
 import { type FastifyReply, type FastifyRequest } from 'fastify';
-import { AuthService } from './auth.service';
-import { registerSchema, loginSchema } from './auth.schema';
-import { refreshCookieOptions, clearRefreshCookieOptions } from '../../utils/cookies';
+import { AuthService } from './auth.service.js';
+import { registerSchema, loginSchema } from './auth.schema.js';
+import { refreshCookieOptions, clearRefreshCookieOptions } from '../../utils/cookies.js';
 
 
 const authService = new AuthService();

@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, pgEnum, boolean, index, integer } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { users } from './users';
+import { users } from './users.js';
 
 export const vendorStatusEnum = pgEnum('vendor_status', [
   'pending_verification',

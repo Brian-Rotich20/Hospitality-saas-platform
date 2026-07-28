@@ -1,11 +1,11 @@
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { s3Client, cloudinary } from '../../config/storage';
-import { env, config } from '../../config/env';
+import { s3Client, cloudinary } from '../../config/storage.js';
+import { env, config } from '../../config/env.js';
 import sharp from 'sharp';
 import { fileTypeFromBuffer  } from 'file-type';
 import { nanoid } from 'nanoid';
-import type { UploadResult, FileMetadata, UploadType } from './upload.types';
+import type { UploadResult, FileMetadata, UploadType } from './upload.types.js';
 
 export class UploadService {
   // Validate file type

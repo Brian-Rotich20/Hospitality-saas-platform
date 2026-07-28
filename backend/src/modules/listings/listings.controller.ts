@@ -1,17 +1,17 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { ListingService } from './listings.service';
-import { db }            from '../../config/database';
+import { ListingService } from './listings.service.js';
+import { db }            from '../../config/database.js';
 import { eq }            from 'drizzle-orm';
 
 // ✅ Direct import — avoids circular dependency / FST_ERR_VALIDATION
-import { vendors } from '../../db/schema/vendors';
+import { vendors } from '../../db/schema/vendors.js';
 
 import {
   createListingSchema,
   updateListingSchema,
   publishListingSchema,
   searchListingsSchema,
-} from './listings.schema';
+} from './listings.schema.js';
 
 const listingService = new ListingService();
 

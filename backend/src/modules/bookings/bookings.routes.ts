@@ -1,13 +1,13 @@
 import { FastifyInstance } from 'fastify';
-import { BookingController } from './bookings.controller';
+import { BookingController } from './bookings.controller.js';
 import { eq, desc }          from 'drizzle-orm';
 import { z }                 from 'zod';
-import { db }                from '../../config/database';
+import { db }                from '../../config/database.js';
 
 // ✅ Import directly from individual schema files — NOT barrel index
-import { bookings } from '../../db/schema/bookings';
-import { listings } from '../../db/schema/listings';
-import { users }    from '../../db/schema/users';
+import { bookings } from '../../db/schema/bookings.js';
+import { listings } from '../../db/schema/listings.js';
+import { users }    from '../../db/schema/users.js';
 
 const bookingController = new BookingController();
 

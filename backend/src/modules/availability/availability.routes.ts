@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { AvailabilityController } from './availability.controller';
+import { AvailabilityController } from './availability.controller.js';
 
 const availabilityController = new AvailabilityController();
 

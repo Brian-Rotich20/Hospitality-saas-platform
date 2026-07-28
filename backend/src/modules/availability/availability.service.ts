@@ -1,8 +1,8 @@
 import { eq, and, between, inArray, gte, lte, sql } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { availability, listings, bookings } from '../../db/schema';
-import { setCache, getCache, delCache } from '../../config/redis';
-import type { BlockDatesInput, UnblockDatesInput, CheckAvailabilityInput } from './availability.schema';
+import { db } from '../../config/database.js';
+import { availability, listings, bookings } from '../../db/schema.js';
+import { setCache, getCache, delCache } from '../../config/redis.js';
+import type { BlockDatesInput, UnblockDatesInput, CheckAvailabilityInput } from './availability.schema.js';
 
 export class AvailabilityService {
   // Block dates for a listing

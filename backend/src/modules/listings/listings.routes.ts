@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { ListingController } from './listings.controller';
+import { ListingController } from './listings.controller.js';
 
 const listingController = new ListingController();
 

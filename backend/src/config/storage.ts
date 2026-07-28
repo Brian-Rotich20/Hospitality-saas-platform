@@ -1,6 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { v2 as cloudinary } from 'cloudinary';
-import { env } from './env';
+import { env } from './env.js';
 
 // AWS S3 Client
 export const s3Client = env.STORAGE_PROVIDER === 's3' && env.AWS_ACCESS_KEY_ID

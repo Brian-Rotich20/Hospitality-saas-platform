@@ -1,6 +1,6 @@
-import './types/fastify-augmentation';
-import { buildApp } from './app';
-import { env } from './config/env';
+import './types/fastify-augmentation.js';
+import { buildApp } from './app.js';
+import { env } from './config/env.js';
 
 process.on('uncaughtException', (err: Error) => {
   console.error('[uncaughtException]', err.message, err.stack);

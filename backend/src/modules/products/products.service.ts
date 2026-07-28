@@ -1,13 +1,13 @@
 import { eq, and, or, gte, lte, ilike, sql, desc, asc } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { products, productVariants, productInventory, vendors, categories } from '../../db/schema';
-import { getCache, setCache, delCache } from '../../config/redis';
-import type { ProductFilters } from './products.types';
+import { db } from '../../config/database.js';
+import { products, productVariants, productInventory, vendors, categories } from '../../db/schema.js';
+import { getCache, setCache, delCache } from '../../config/redis.js';
+import type { ProductFilters } from './products.types.js';
 import type {
   CreateProductInput,
   UpdateProductInput,
   UpdateInventoryInput,
-} from './products.schema';
+} from './products.schema.js';
 
 export class ProductService {
 

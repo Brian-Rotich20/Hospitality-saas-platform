@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { db } from '../config/database';
-import { vendors } from '../db/schema';
+import { db } from '../config/database.js';
+import { vendors } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 // ── authenticate ──────────────────────────────────────────────────────────────

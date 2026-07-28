@@ -1,8 +1,8 @@
 import { eq, isNull, and } from 'drizzle-orm';
-import { db } from '../../config/database';
-import { categories } from '../../db/schema';
-import { getCache, setCache, delCache } from '../../config/redis';
-import type { CreateCategoryInput, UpdateCategoryInput } from './categories.schema';
+import { db } from '../../config/database.js';
+import { categories } from '../../db/schema.js';
+import { getCache, setCache, delCache } from '../../config/redis.js';
+import type { CreateCategoryInput, UpdateCategoryInput } from './categories.schema.js';
 
 export class CategoryService {
 

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { CategoryController } from './categories.controller';
+import { CategoryController } from './categories.controller.js';
 
 const categoryController = new CategoryController();
 

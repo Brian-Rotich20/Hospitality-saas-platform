@@ -11,4 +11,4 @@ export {
   sendVendorRejectedEmail,
   sendBookingConfirmationEmail,
   sendNewBookingNotificationEmail,
-} from './email.brevo';
+} from './email.brevo.js';
