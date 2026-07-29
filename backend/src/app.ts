@@ -3,7 +3,7 @@ import { db } from './config/database.js';
 import Fastify from 'fastify';
 import { env } from './config/env.js';
 import cors from '@fastify/cors';
-import jwt from '@fastify/jwt';
+import {  auth } from './config/auth.js';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
@@ -13,6 +13,7 @@ import { hashPassword } from './utils/password.js'; // adjust path if different
 import { users }      from './db/schema/users.js';
 import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
+
 // ── Route imports 
 import { authRoutes }                        from './modules/auth/auth.routes.js';
 import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes.js';
@@ -60,8 +61,7 @@ export async function buildApp() {
   await fastify.register(fastifyCookie, {
     secret: process.env.COOKIE_SECRET ?? 'changeme',
   });
-  await fastify.register(jwt, { secret: env.JWT_SECRET });
-
+ 
   await fastify.register(multipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
   });
@@ -91,6 +91,38 @@ export async function buildApp() {
 
   await fastify.register(swaggerUI, { routePrefix: '/docs' });
 
+    fastify.route({
+    method: ['GET', 'POST'],
+    url: '/api/auth/*',
+    async handler(request, reply) {
+      try {
+        const url = new URL(request.url, `http://${request.headers.host}`);
+
+        const headers = new Headers();
+        Object.entries(request.headers).forEach(([key, value]) => {
+          if (value) headers.append(key, value.toString());
+        });
+
+        const req = new Request(url.toString(), {
+          method: request.method,
+          headers,
+          body: request.method !== 'GET' && request.method !== 'HEAD'
+            ? JSON.stringify(request.body)
+            : null,
+        });
+
+        const response = await auth.handler(req);
+
+        reply.status(response.status);
+        response.headers.forEach((value, key) => reply.header(key, value));
+        const body = response.body ? await response.text() : null;
+        reply.send(body);
+      } catch (err) {
+        fastify.log.error(err, 'Better Auth handler error');
+        reply.status(500).send({ error: 'Internal authentication error' });
+      }
+    },
+  });
 
   // ── Decorators
   fastify.decorate('authenticate',  authenticate);
