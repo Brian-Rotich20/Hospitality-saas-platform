@@ -9,4 +9,5 @@ export * from './categories.js';
 export * from './products.js';
 export * from './reviews.js';
 export * from './savedListings.js';
+export * from './auth.js';
 // export * from './uploads.js';

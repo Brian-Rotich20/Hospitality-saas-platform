@@ -1,13 +1,13 @@
 import Redis from 'ioredis';
 import { env } from './env.js';
 
-export const redis = new Redis(env.REDIS_URL);
+export const redis = new Redis.default(env.REDIS_URL);
 
 redis.on('connect', () => {
   console.log('✅ Redis connected');
 });
 
-redis.on('error', (err) => {
+redis.on('error', (err: any) => {
   console.error('❌ Redis error:', err);
 });
 

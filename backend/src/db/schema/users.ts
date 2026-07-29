@@ -9,6 +9,7 @@ export const users = pgTable('users', {
   passwordHash:      varchar('password_hash', { length: 255 }),
   googleId:     varchar('google_id', { length: 255 }).unique(),
   role:              userRoleEnum('role').notNull().default('customer'),
+  vendorId:          uuid('vendor_id'),
   fullName:          varchar('full_name', { length: 255 }),
   avatarUrl:         varchar('avatar_url', { length: 500 }),
   verified:          boolean('verified').notNull().default(false),

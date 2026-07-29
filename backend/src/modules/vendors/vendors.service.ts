@@ -9,14 +9,13 @@ import {
   sendVendorVerificationEmail,
   sendVendorApprovedEmail,
 } from '../../utils/email.js';
-import { signAccessToken, signRefreshToken } from '../../utils/jwt.js';
 import { redis }         from '../../config/redis.js';
 import type { VendorApplicationInput, PayoutDetailsInput, UpdateVendorInput,} from './vendors.schema.js';
 import type { VendorFilters } from './vendors.types.js';
 
 const OTP_TTL         = 15 * 60;
 const OTP_RESEND_WAIT = 60;
-const REFRESH_TTL_SECS = 60 * 60 * 24 * 7;
+
 
 function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -64,22 +63,14 @@ export class VendorService {
     if (!vendor) throw new Error('Failed to create vendor application. Please try again.');
 
     await db.update(users)
-      .set({role: 'vendor', updatedAt: new Date()})
+      .set({role: 'vendor', vendorId: vendor.id, updatedAt: new Date()})
       .where(eq(users.id, userId));
   
 
     await this._sendOTP(userId, vendor.id, data.businessName, user.email)
       .catch(err => console.error('[OTP email failed]', err));
 
-       const accessToken  = signAccessToken({
-      userId, email: user.email, role: 'vendor', emailVerified: false, vendorId: vendor.id,
-      });
-      const refreshToken = signRefreshToken({
-        userId, email: user.email, role: 'vendor', emailVerified: false, vendorId: vendor.id,
-      });
-      await redis.setex(`refresh:${userId}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
-
-    return { vendor, otpSent: true, accessToken, refreshToken };
+    return { vendor, otpSent: true };
   }
 
   // ── Send OTP (internal) ────────────────────────────────────────────────────
@@ -126,7 +117,6 @@ export class VendorService {
 
     await redis.del(key);
 
-    // Activate vendor
     const [vendor] = await db.update(vendors)
       .set({ status: 'approved', verified: true, updatedAt: new Date() })
       .where(eq(vendors.id, data.vendorId))
@@ -134,27 +124,12 @@ export class VendorService {
 
     if (!vendor) throw new Error('Vendor record not found. Please contact support.');
 
-    // Upgrade user role + mark email verified
     await db.update(users)
-      .set({ role: 'vendor', verified: true, updatedAt: new Date() })
+      .set({ role: 'vendor', vendorId: vendor.id, verified: true, updatedAt: new Date() })
       .where(eq(users.id, userId));
 
     await this.invalidateCache(userId, data.vendorId);
 
-    // ── Issue fresh tokens with emailVerified=true + role=vendor ──────────
-    const newPayload = {
-      userId,
-      email:         (await db.query.users.findFirst({ where: eq(users.id, userId), columns: { email: true } }))?.email ?? '',
-      role:          'vendor' as const,
-      emailVerified: true,
-      vendorId:      vendor.id,
-    };
-
-    const accessToken  = signAccessToken(newPayload);
-    const refreshToken = signRefreshToken(newPayload);
-    await redis.setex(`refresh:${userId}:${refreshToken.slice(-20)}`, REFRESH_TTL_SECS, refreshToken);
-
-    // Send welcome email non-blocking
     setImmediate(async () => {
       const user = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { email: true } });
       if (user?.email) {
@@ -163,7 +138,9 @@ export class VendorService {
       }
     });
 
-    return { vendor, accessToken, refreshToken };
+    return { vendor };
+    // ✅ No token issuance here either — frontend just needs to know it succeeded,
+    // it can trigger a session refetch (Better Auth client does this automatically)
   }
 
   // ── Resend OTP ─────────────────────────────────────────────────────────────
