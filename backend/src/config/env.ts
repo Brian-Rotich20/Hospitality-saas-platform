@@ -83,6 +83,10 @@ const envSchema = z.object({
   BREVO_API_KEY: z.string().optional(),
   MAIL_FROM_NAME: z.string().optional(),
   MAIL_FROM_EMAIL: z.string().email().optional(),
+
+  // ── Better Auth
+  BETTER_AUTH_SECRET: z.string(),
+  BETTER_AUTH_URL:    z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

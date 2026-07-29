@@ -14,6 +14,7 @@ import * as categoriesSchema   from '../db/schema/categories.js';
 import * as productsSchema     from '../db/schema/products.js';
 import * as reviewsSchema      from '../db/schema/reviews.js';
 import * as savedListingsSchema from '../db/schema/savedListings.js';
+import * as authSchema from '../db/schema/auth.js'; 
 
 const schema = {
   ...usersSchema,
@@ -27,6 +28,7 @@ const schema = {
   ...productsSchema,
   ...reviewsSchema,
   ...savedListingsSchema,
+  ...authSchema,
 };
 
 const client = postgres(env.DATABASE_URL);
