@@ -1,6 +1,6 @@
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { bookings, listings, users, vendors } from '../../db/schema.js';
+import { bookings, listings, users, vendors } from '../../db/schema/index.js';
 import { AvailabilityService } from '../availability/availability.service.js';
 import { PayoutService } from '../payouts/payouts.service.js';
 import type { CreateBookingInput, DeclineBookingInput, CancelBookingInput, GetBookingsInput } from './bookings.schema.js';

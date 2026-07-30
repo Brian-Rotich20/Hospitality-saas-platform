@@ -3,7 +3,7 @@
 
 import { FastifyInstance } from 'fastify';
 import { db }             from '../../config/database.js';
-import { bookings, listings, users } from '../../db/schema.js';
+import { bookings, listings, users } from '../../db/schema/index.js';
 import { eq, desc }       from 'drizzle-orm';
 
 export async function bookingAdminRoutes(fastify: FastifyInstance) {

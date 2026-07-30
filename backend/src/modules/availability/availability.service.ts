@@ -1,6 +1,6 @@
 import { eq, and, between, inArray, gte, lte, sql } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { availability, listings, bookings } from '../../db/schema.js';
+import { availability, listings, bookings } from '../../db/schema/index.js';
 import { setCache, getCache, delCache } from '../../config/redis.js';
 import type { BlockDatesInput, UnblockDatesInput, CheckAvailabilityInput } from './availability.schema.js';
 

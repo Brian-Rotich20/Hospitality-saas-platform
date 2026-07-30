@@ -2,7 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { BookingService } from './bookings.service.js';
 import { eq } from 'drizzle-orm';
 import { db } from '../../config/database.js';
-import { vendors } from '../../db/schema.js';
+import { vendors } from '../../db/schema/index.js';
 import {
   createBookingSchema,
   declineBookingSchema,
