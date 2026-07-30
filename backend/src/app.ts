@@ -16,6 +16,7 @@ import { eq } from 'drizzle-orm';
 
 // ── Route imports 
 import { authRoutes }                        from './modules/auth/auth.routes.js';
+import { otpRoutes }                         from './modules/auth/otp.routes.js';
 import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes.js';
 import { uploadRoutes }                      from './modules/upload/upload.routes.js';
 import { listingRoutes }                     from './modules/listings/listings.routes.js';
