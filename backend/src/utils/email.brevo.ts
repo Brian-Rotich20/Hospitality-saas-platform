@@ -9,7 +9,7 @@ const FROM_EMAIL = 'support@inovasoftwares.co.ke';
 const FROM_NAME = 'Inova Softwares'; 
 const APP_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
 
-async function send(to: string, subject: string, html: string) {
+async function send(to: string, subject: string, html: string): Promise<unknown> {
   try {
     return await brevo.transactionalEmails.sendTransacEmail({
       sender: {
