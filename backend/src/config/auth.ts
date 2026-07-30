@@ -5,6 +5,26 @@ import { db } from './database.js';
 import { users } from '../db/schema/users.js';
 import { sessions, accounts, verifications } from '../db/schema/auth.js';
 import { env } from './env.js';
+import { redis } from './redis.js';
+import { sendCustomerVerificationEmail } from '../utils/email.js';
+
+const OTP_TTL = 15 * 60;
+
+function generateOTP(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Fires the exact same OTP mechanism the old authService.register() used —
+// stores in Redis under the same key shape, sends the same email template.
+async function sendCustomerOTP(userId: string, email: string, fullName: string) {
+  const otp = generateOTP();
+  const key = `auth:otp:${userId}`;
+  await redis.setex(key, OTP_TTL, JSON.stringify({ otp, attempts: 0 }));
+  setImmediate(() => {
+    sendCustomerVerificationEmail({ to: email, fullName, otp })
+      .catch(err => console.error('[Customer OTP email failed]', err?.message));
+  });
+}
 
 export const auth = betterAuth({
   secret:  env.BETTER_AUTH_SECRET,
@@ -45,13 +65,11 @@ export const auth = betterAuth({
     },
   },
 
-  // ── Default: email + password ────────────────────────────────────────────
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,   // your existing OTP flow stays LinkMart-owned
+    requireEmailVerification: false,
   },
 
-  // ── Google as an additional option — more providers later, same pattern ──
   socialProviders: {
     google: {
       clientId:     env.GOOGLE_CLIENT_ID!,
@@ -59,7 +77,6 @@ export const auth = betterAuth({
     },
   },
 
-  // ── Admin tooling — session listing, ban/unban, impersonation ─────────────
   plugins: [
     admin({
       defaultRole: 'customer',
@@ -75,6 +92,24 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
+  },
+
+  // ── Fire LinkMart's own OTP flow right after Better Auth creates a user ────
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Google-created users arrive already verified — skip OTP entirely.
+          if (user.emailVerified) return;
+
+          await sendCustomerOTP(
+            user.id,
+            user.email,
+            (user as any).fullName ?? user.name ?? 'there',
+          ).catch(err => console.error('[Register OTP hook failed]', err));
+        },
+      },
+    },
   },
 });
 
