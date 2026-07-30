@@ -24,3 +24,5 @@ propmpt.txt
 fix-enum.js
 test
 test-email.ts
+clear.ts
+add-js-extensions.mjs

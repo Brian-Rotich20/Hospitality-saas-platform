@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { randomUUID } from 'crypto';
 import { admin } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './database.js';
@@ -30,6 +31,13 @@ export const auth = betterAuth({
   secret:  env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL ?? env.API_URL ?? 'http://localhost:3000',
   basePath: '/api/auth',
+
+
+  advanced: {
+    database: {
+      generateId: () => randomUUID(),   // ← force UUID format to match your existing schema
+    },
+  },
 
   database: drizzleAdapter(db, {
     provider: 'pg',
