@@ -15,7 +15,7 @@ import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
 
 // ── Route imports 
-import { authRoutes }                        from './modules/auth/auth.routes.js';
+
 import { otpRoutes }                         from './modules/auth/otp.routes.js';
 import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes.js';
 import { uploadRoutes }                      from './modules/upload/upload.routes.js';
@@ -192,8 +192,7 @@ export async function buildApp() {
   });
 
   // ── Routes
-  await fastify.register(authRoutes,          { prefix: '/api/auth'           });
-  await fastify.register(otpRoutes,           { prefix: '/api/auth/otp'       });
+  await fastify.register(otpRoutes,           { prefix: '/api/otp'       });
   await fastify.register(vendorRoutes,        { prefix: '/api/vendors'        });
   await fastify.register(vendorAdminRoutes,   { prefix: '/api/admin/vendors'  });
   await fastify.register(uploadRoutes,        { prefix: '/api/upload'         });

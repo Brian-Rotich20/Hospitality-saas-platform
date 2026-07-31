@@ -6,26 +6,10 @@ import { db } from './database.js';
 import { users } from '../db/schema/users.js';
 import { sessions, accounts, verifications } from '../db/schema/auth.js';
 import { env } from './env.js';
-import { redis } from './redis.js';
-import { sendCustomerVerificationEmail } from '../utils/email.js';
+import { sendCustomerOTP } from '../utils/otp.js';
 
-const OTP_TTL = 15 * 60;
 
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
-// Fires the exact same OTP mechanism the old authService.register() used —
-// stores in Redis under the same key shape, sends the same email template.
-async function sendCustomerOTP(userId: string, email: string, fullName: string) {
-  const otp = generateOTP();
-  const key = `auth:otp:${userId}`;
-  await redis.setex(key, OTP_TTL, JSON.stringify({ otp, attempts: 0 }));
-  setImmediate(() => {
-    sendCustomerVerificationEmail({ to: email, fullName, otp })
-      .catch(err => console.error('[Customer OTP email failed]', err?.message));
-  });
-}
 
 export const auth = betterAuth({
   secret:  env.BETTER_AUTH_SECRET,
