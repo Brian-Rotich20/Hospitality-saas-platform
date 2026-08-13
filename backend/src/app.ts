@@ -13,6 +13,7 @@ import { hashPassword } from './utils/password.js'; // adjust path if different
 import { users }      from './db/schema/users.js';
 import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
+import { fromNodeHeaders } from 'better-auth/node';
 
 // ── Route imports 
 
@@ -99,11 +100,7 @@ export async function buildApp() {
       try {
         const url = new URL(request.url, `http://${request.headers.host}`);
 
-        const headers = new Headers();
-        Object.entries(request.headers).forEach(([key, value]) => {
-          if (value) headers.append(key, value.toString());
-        });
-
+        const headers = fromNodeHeaders(request.headers); 
         const req = new Request(url.toString(), {
           method: request.method,
           headers,
@@ -148,45 +145,38 @@ export async function buildApp() {
     status: 'ok', timestamp: new Date().toISOString(),
   }));
 
-
   fastify.post('/api/dev/seed-admin', async (req, reply) => {
-    // Only works in non-production AND only if no admin exists yet
     if (process.env.NODE_ENV === 'production') {
       return reply.code(403).send({ success: false, error: 'Not available in production' });
     }
 
     const { email, password, fullName } = req.body as {
-      email:    string;
-      password: string;
-      fullName: string;
+      email: string; password: string; fullName: string;
     };
-
     if (!email || !password || !fullName) {
       return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
     }
 
-    // Check if admin already exists
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
+    const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
 
     if (existing) {
-      // If user exists, just promote to admin
-      await db.update(users)
-        .set({ role: 'admin' })
-        .where(eq(users.email, email));
+      await db.update(users).set({ role: 'admin' }).where(eq(users.email, email));
       return reply.send({ success: true, message: `${email} promoted to admin` });
     }
 
-    // Create fresh admin account
-    const passwordHash = await hashPassword(password);
-    await db.insert(users).values({
-      fullName,
-      email,
-      passwordHash,
-      role:  'admin',
-      phone: '+254700000000', // placeholder
+    // Create through Better Auth so accounts.password gets populated correctly —
+    // no more direct users.passwordHash write.
+    const signUpResult = await auth.api.signUpEmail({
+      body: { email, password, name: fullName },
     });
+
+    if (!signUpResult?.user) {
+      return reply.code(500).send({ success: false, error: 'Failed to create admin via Better Auth' });
+    }
+
+    await db.update(users)
+      .set({ role: 'admin', verified: true })
+      .where(eq(users.id, signUpResult.user.id));
 
     return reply.send({ success: true, message: `Admin account created for ${email}` });
   });
