@@ -24,6 +24,7 @@ export const accounts = pgTable('accounts', {
   refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
   scope:                 text('scope'),
   password:              varchar('password', { length: 255 }),   // Better Auth owns password hashing here
+  issuer:                varchar('issuer', { length: 255 }), 
   createdAt:             timestamp('created_at').notNull().defaultNow(),
   updatedAt:             timestamp('updated_at').notNull().defaultNow(),
 });
