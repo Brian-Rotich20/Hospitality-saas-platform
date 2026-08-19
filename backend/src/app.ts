@@ -145,41 +145,52 @@ export async function buildApp() {
     status: 'ok', timestamp: new Date().toISOString(),
   }));
 
-  fastify.post('/api/dev/seed-admin', async (req, reply) => {
-    if (process.env.NODE_ENV === 'production') {
-      return reply.code(403).send({ success: false, error: 'Not available in production' });
-    }
+ fastify.post('/api/dev/seed-admin', async (req, reply) => {
+  if (process.env.NODE_ENV === 'production') {
+    return reply.code(403).send({ success: false, error: 'Not available in production' });
+  }
 
-    const { email, password, fullName } = req.body as {
-      email: string; password: string; fullName: string;
-    };
-    if (!email || !password || !fullName) {
-      return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
-    }
+  const { email, password, fullName } = req.body as {
+    email: string; password: string; fullName: string;
+  };
+  if (!email || !password || !fullName) {
+    return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
+  }
 
-    const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
 
-    if (existing) {
-      await db.update(users).set({ role: 'admin' }).where(eq(users.email, email));
-      return reply.send({ success: true, message: `${email} promoted to admin` });
-    }
-
-    // Create through Better Auth so accounts.password gets populated correctly —
-    // no more direct users.passwordHash write.
-    const signUpResult = await auth.api.signUpEmail({
-      body: { email, password, name: fullName },
+  if (existing) {
+    // ✅ Check for a REAL credential before taking the shortcut
+    const { accounts } = await import('./db/schema/auth.js');
+    const cred = await db.query.accounts.findFirst({
+      where: (a, { eq, and }) => and(eq(a.userId, existing.id), eq(a.providerId, 'credential')),
     });
 
-    if (!signUpResult?.user) {
-      return reply.code(500).send({ success: false, error: 'Failed to create admin via Better Auth' });
+    if (!cred) {
+      return reply.code(409).send({
+        success: false,
+        error: `User ${email} exists but has no valid credential. Delete the user row and re-seed, or use a different email.`,
+      });
     }
 
-    await db.update(users)
-      .set({ role: 'admin', verified: true })
-      .where(eq(users.id, signUpResult.user.id));
+    await db.update(users).set({ role: 'admin' }).where(eq(users.email, email));
+    return reply.send({ success: true, message: `${email} promoted to admin` });
+  }
 
-    return reply.send({ success: true, message: `Admin account created for ${email}` });
+  const signUpResult = await auth.api.signUpEmail({
+    body: { email, password, name: fullName },
   });
+
+  if (!signUpResult?.user) {
+    return reply.code(500).send({ success: false, error: 'Failed to create admin via Better Auth' });
+  }
+
+  await db.update(users)
+    .set({ role: 'admin', verified: true })
+    .where(eq(users.id, signUpResult.user.id));
+
+  return reply.send({ success: true, message: `Admin account created for ${email}` });
+});
 
   // ── Routes
   await fastify.register(otpRoutes,           { prefix: '/api/otp'       });
