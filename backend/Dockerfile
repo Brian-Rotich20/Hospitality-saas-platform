@@ -1,26 +1,17 @@
-# ---------- Build stage ----------
-FROM node:20-alpine AS builder
-
+# Instructions for building and running the backend Docker image.
+# syntax=docker/dockerfile:1
+FROM node:22-alpine AS builder
 WORKDIR /app
-
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci
-
 COPY . .
 RUN npm run build
 
-# ---------- Production stage ----------
-FROM node:20-alpine
-
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci --omit=dev
-
-
 COPY --from=builder /app/dist ./dist
-
-EXPOSE 10000
-
+EXPOSE 8080
 CMD ["node", "dist/server.js"]

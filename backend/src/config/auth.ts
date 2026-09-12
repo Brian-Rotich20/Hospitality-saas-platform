@@ -21,6 +21,7 @@ export const auth = betterAuth({
     database: {
       generateId: () => randomUUID(),   // ← force UUID format to match your existing schema
     },
+    useSecureCookies: env.NODE_ENV === 'production',
   },
 
   database: drizzleAdapter(db, {

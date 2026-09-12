@@ -1,0 +1,11 @@
+#Define and run multi-container Docker applications using Docker Compose.
+
+services:
+  server:
+    build:
+      context: .
+    environment:
+      NODE_ENV: production
+    ports:
+      - 8080:8080
+

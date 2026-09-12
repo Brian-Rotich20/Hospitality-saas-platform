@@ -3,29 +3,29 @@ import { db } from './config/database.js';
 import Fastify from 'fastify';
 import { env } from './config/env.js';
 import cors from '@fastify/cors';
-import {  auth } from './config/auth.js';
+import { auth } from './config/auth.js';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { hashPassword } from './utils/password.js'; // adjust path if different
-import { users }      from './db/schema/users.js';
+import { users } from './db/schema/users.js';
 import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
 import { fromNodeHeaders } from 'better-auth/node';
 
 // ── Route imports 
 
-import { otpRoutes }                         from './modules/auth/otp.routes.js';
-import { vendorRoutes, vendorAdminRoutes }   from './modules/vendors/vendors.routes.js';
-import { uploadRoutes }                      from './modules/upload/upload.routes.js';
-import { listingRoutes }                     from './modules/listings/listings.routes.js';
-import { categoryRoutes }                    from './modules/categories/categories.routes.js';  // ✅ fixed
-import { productRoutes }                     from './modules/products/products.routes.js';       // ✅ added
-import { availabilityRoutes }                from './modules/availability/availability.routes.js';
+import { otpRoutes } from './modules/auth/otp.routes.js';
+import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes.js';
+import { uploadRoutes } from './modules/upload/upload.routes.js';
+import { listingRoutes } from './modules/listings/listings.routes.js';
+import { categoryRoutes } from './modules/categories/categories.routes.js';  // ✅ fixed
+import { productRoutes } from './modules/products/products.routes.js';       // ✅ added
+import { availabilityRoutes } from './modules/availability/availability.routes.js';
 import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes.js';
-import { payoutRoutes, payoutAdminRoutes }   from './modules/payouts/payouts.routes.js';
+import { payoutRoutes, payoutAdminRoutes } from './modules/payouts/payouts.routes.js';
 import { reviewRoutes } from './modules/reviews/reviews.routes.js';
 import { userRoutes } from './modules/users/users.routes.js';
 // ── Middleware 
@@ -45,12 +45,12 @@ export async function buildApp() {
   // ── Plugins 
   await fastify.register(cors, {
     origin: [
-          'https://linkmart-olive.vercel.app', 'http://localhost:3000',           
-        ],
-    methods:              ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders:       ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-    credentials:          true,
-    preflightContinue:    false,
+      'https://linkmart-olive.vercel.app', 'http://localhost:3000',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    credentials: true,
+    preflightContinue: false,
     optionsSuccessStatus: 204,
   });
 
@@ -63,25 +63,11 @@ export async function buildApp() {
   await fastify.register(fastifyCookie, {
     secret: process.env.COOKIE_SECRET ?? 'changeme',
   });
- 
+
   await fastify.register(multipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
   });
-  
-  fastify.get('/api/dev/seed', async (_, reply) => {
-  await db.insert(categories).values([
-    { name: 'Venues',        slug: 'venues',        icon: 'Building2'     },
-    { name: 'Catering',      slug: 'catering',      icon: 'Utensils'      },
-    { name: 'Photography',   slug: 'photography',   icon: 'Camera'        },
-    { name: 'Music & DJ',    slug: 'music',         icon: 'Music'         },
-    { name: 'Décor',         slug: 'decor',         icon: 'Flower2'       },
-    { name: 'Transport',     slug: 'transport',     icon: 'Bus'           },
-    { name: 'Entertainment', slug: 'entertainment', icon: 'MoreHorizontal'},
-    { name: 'Education',     slug: 'education',     icon: 'BookOpen'      },
-  ]).onConflictDoNothing();
 
-  return reply.send({ success: true, message: 'Categories seeded' });
-  });
 
   await fastify.register(swagger, {
     swagger: {
@@ -93,14 +79,14 @@ export async function buildApp() {
 
   await fastify.register(swaggerUI, { routePrefix: '/docs' });
 
-    fastify.route({
+  fastify.route({
     method: ['GET', 'POST'],
     url: '/api/auth/*',
     async handler(request, reply) {
       try {
         const url = new URL(request.url, `http://${request.headers.host}`);
 
-        const headers = fromNodeHeaders(request.headers); 
+        const headers = fromNodeHeaders(request.headers);
         const req = new Request(url.toString(), {
           method: request.method,
           headers,
@@ -123,11 +109,11 @@ export async function buildApp() {
   });
 
   // ── Decorators
-  fastify.decorate('authenticate',  authenticate);
-  fastify.decorate('requireAdmin',  requireAdmin);
+  fastify.decorate('authenticate', authenticate);
+  fastify.decorate('requireAdmin', requireAdmin);
   fastify.decorate('requireVendor', requireVendor);
   fastify.decorate('requireVerified', requireVerified);
-  fastify.decorate('db',            db);
+  fastify.decorate('db', db);
 
 
   fastify.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
@@ -145,66 +131,67 @@ export async function buildApp() {
     status: 'ok', timestamp: new Date().toISOString(),
   }));
 
- fastify.post('/api/dev/seed-admin', async (req, reply) => {
-  if (process.env.NODE_ENV === 'production') {
-    return reply.code(403).send({ success: false, error: 'Not available in production' });
-  }
-
-  const { email, password, fullName } = req.body as {
-    email: string; password: string; fullName: string;
-  };
-  if (!email || !password || !fullName) {
-    return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
-  }
-
-  const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
-
-  if (existing) {
-    // ✅ Check for a REAL credential before taking the shortcut
-    const { accounts } = await import('./db/schema/auth.js');
-    const cred = await db.query.accounts.findFirst({
-      where: (a, { eq, and }) => and(eq(a.userId, existing.id), eq(a.providerId, 'credential')),
-    });
-
-    if (!cred) {
-      return reply.code(409).send({
-        success: false,
-        error: `User ${email} exists but has no valid credential. Delete the user row and re-seed, or use a different email.`,
-      });
+  fastify.post('/api/dev/seed-admin', async (req, reply) => {
+    if (process.env.NODE_ENV === 'production') {
+      return reply.code(403).send({ success: false, error: 'Not available in production' });
     }
 
-    await db.update(users).set({ role: 'admin' }).where(eq(users.email, email));
-    return reply.send({ success: true, message: `${email} promoted to admin` });
-  }
+    const { email, password, fullName } = req.body as {
+      email: string; password: string; fullName: string;
+    };
+    if (!email || !password || !fullName) {
+      return reply.code(400).send({ success: false, error: 'email, password and fullName required' });
+    }
 
-  const signUpResult = await auth.api.signUpEmail({
-    body: { email, password, name: fullName },
+    const existing = await db.query.users.findFirst({ where: eq(users.email, email) });
+
+    if (existing) {
+      // ✅ Check for a REAL credential before taking the shortcut
+      const { accounts } = await import('./db/schema/auth.js');
+      const cred = await db.query.accounts.findFirst({
+        where: (a, { eq, and }) => and(eq(a.userId, existing.id), eq(a.providerId, 'credential')),
+      });
+
+      if (!cred) {
+        return reply.code(409).send({
+          success: false,
+          error: `User ${email} exists but has no valid credential. Delete the user row and re-seed, or use a different email.`,
+        });
+      }
+
+      await db.update(users).set({ role: 'admin' }).where(eq(users.email, email));
+      return reply.send({ success: true, message: `${email} promoted to admin` });
+    }
+
+    const signUpResult = await auth.api.signUpEmail({
+      body: { email, password, name: fullName },
+    });
+
+    if (!signUpResult?.user) {
+      return reply.code(500).send({ success: false, error: 'Failed to create admin via Better Auth' });
+    }
+
+    await db.update(users)
+      .set({ role: 'admin', verified: true })
+      .where(eq(users.id, signUpResult.user.id));
+
+    return reply.send({ success: true, message: `Admin account created for ${email}` });
   });
 
-  if (!signUpResult?.user) {
-    return reply.code(500).send({ success: false, error: 'Failed to create admin via Better Auth' });
-  }
-
-  await db.update(users)
-    .set({ role: 'admin', verified: true })
-    .where(eq(users.id, signUpResult.user.id));
-
-  return reply.send({ success: true, message: `Admin account created for ${email}` });
-});
-
   // ── Routes
-  await fastify.register(otpRoutes,           { prefix: '/api/otp'       });
-  await fastify.register(vendorRoutes,        { prefix: '/api/vendors'        });
-  await fastify.register(vendorAdminRoutes,   { prefix: '/api/admin/vendors'  });
-  await fastify.register(uploadRoutes,        { prefix: '/api/upload'         });
-  await fastify.register(listingRoutes,       { prefix: '/api/listings'       });
-  await fastify.register(categoryRoutes,      { prefix: '/api/categories'     }); 
-  await fastify.register(productRoutes,       { prefix: '/api/products'       }); 
-  await fastify.register(availabilityRoutes,  { prefix: '/api'                });
-  await fastify.register(bookingRoutes,       { prefix: '/api/bookings'       });
-  await fastify.register(bookingAdminRoutes,  { prefix: '/api/admin/bookings' });
-  await fastify.register(payoutRoutes,        { prefix: '/api/payouts'        });
-  await fastify.register(payoutAdminRoutes,   { prefix: '/api/admin/payouts'  });
+  await fastify.register(otpRoutes, { prefix: '/api/otp' });
+
+  await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
+  await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
+  await fastify.register(uploadRoutes, { prefix: '/api/upload' });
+  await fastify.register(listingRoutes, { prefix: '/api/listings' });
+  await fastify.register(categoryRoutes, { prefix: '/api/categories' });
+  await fastify.register(productRoutes, { prefix: '/api/products' });
+  await fastify.register(availabilityRoutes, { prefix: '/api' });
+  await fastify.register(bookingRoutes, { prefix: '/api/bookings' });
+  await fastify.register(bookingAdminRoutes, { prefix: '/api/admin/bookings' });
+  await fastify.register(payoutRoutes, { prefix: '/api/payouts' });
+  await fastify.register(payoutAdminRoutes, { prefix: '/api/admin/payouts' });
   await fastify.register(reviewRoutes, { prefix: '/api/reviews' });
   await fastify.register(userRoutes, { prefix: '/api/users' });
 
