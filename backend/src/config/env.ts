@@ -13,11 +13,6 @@ const envSchema = z.object({
   DATABASE_URL: z.string(),
   REDIS_URL: z.string(),
 
-  // ── Auth
-  JWT_SECRET: z.string(),
-  JWT_EXPIRES_IN: z.string().default('7d'),
-  COOKIE_SECRET: z.string(),
-
   // ── Storage
   STORAGE_PROVIDER: z.enum(['s3', 'cloudinary']).default('cloudinary'),
 

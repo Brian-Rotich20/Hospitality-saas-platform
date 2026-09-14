@@ -10,6 +10,7 @@ export const sessions = pgTable('sessions', {
   userAgent: text('user_agent'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  impersonatedBy: uuid('impersonated_by'), 
 });
 
 export const accounts = pgTable('accounts', {
