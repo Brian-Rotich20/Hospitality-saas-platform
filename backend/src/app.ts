@@ -182,7 +182,7 @@ export async function buildApp() {
   await fastify.register(otpRoutes, { prefix: '/api/otp' });
 
   await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
-  await fastify.register(customerRoutes, { prefix: '/api/customers' });
+  await fastify.register(customerRoutes, { prefix: '/api/admin/customers' });
   await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
   await fastify.register(listingRoutes, { prefix: '/api/listings' });
