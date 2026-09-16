@@ -9,7 +9,6 @@ import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
-import { hashPassword } from './utils/password.js'; // adjust path if different
 import { users } from './db/schema/users.js';
 import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
@@ -19,6 +18,7 @@ import { fromNodeHeaders } from 'better-auth/node';
 
 import { otpRoutes } from './modules/auth/otp.routes.js';
 import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.routes.js';
+import { customerRoutes } from './modules/customers/customers.route.js';
 import { uploadRoutes } from './modules/upload/upload.routes.js';
 import { listingRoutes } from './modules/listings/listings.routes.js';
 import { categoryRoutes } from './modules/categories/categories.routes.js';  // ✅ fixed
@@ -182,6 +182,7 @@ export async function buildApp() {
   await fastify.register(otpRoutes, { prefix: '/api/otp' });
 
   await fastify.register(vendorRoutes, { prefix: '/api/vendors' });
+  await fastify.register(customerRoutes, { prefix: '/api/customers' });
   await fastify.register(vendorAdminRoutes, { prefix: '/api/admin/vendors' });
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
   await fastify.register(listingRoutes, { prefix: '/api/listings' });
