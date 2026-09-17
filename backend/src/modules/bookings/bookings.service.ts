@@ -290,7 +290,7 @@ export class BookingService {
         listing: {
           columns: { id: true, title: true, coverPhoto: true, location: true },
           with: {
-            vendor: { columns: { businessName: true, phoneNumber: true, email: true } },
+            vendor: { columns: { businessName: true, phoneNumber: true } },
           },
         },
       },

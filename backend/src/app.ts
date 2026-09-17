@@ -1,7 +1,6 @@
 import './types/fastify-augmentation.js';
 import { db } from './config/database.js';
 import Fastify from 'fastify';
-import { env } from './config/env.js';
 import cors from '@fastify/cors';
 import { auth } from './config/auth.js';
 import multipart from '@fastify/multipart';
@@ -10,7 +9,6 @@ import swaggerUI from '@fastify/swagger-ui';
 import fastifyCookie from '@fastify/cookie';
 import { serializerCompiler, validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod';
 import { users } from './db/schema/users.js';
-import { categories } from './db/schema/categories.js'; // at top of file
 import { eq } from 'drizzle-orm';
 import { fromNodeHeaders } from 'better-auth/node';
 
