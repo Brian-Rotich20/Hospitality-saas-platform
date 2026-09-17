@@ -1,63 +1,19 @@
 // src/modules/vendors/vendors.controller.ts
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { VendorService } from './vendors.service.js';
-import {
-  vendorApplicationSchema,
-  updateVendorSchema,
-  payoutDetailsSchema,
-} from './vendors.schema.js';
+import { updateVendorSchema, payoutDetailsSchema } from './vendors.schema.js';
 
 const vendorService = new VendorService();
 
 export class VendorController {
 
-  // ── POST /vendors/apply ────────────────────────────────────────────────────
-  async applyAsVendor(request: FastifyRequest, reply: FastifyReply) {
+  // ── POST /vendors/become ───────────────────────────────────────────────────
+  // No body needed — pre-fills from the user's own name/phone, instant, idempotent.
+  async becomeVendor(request: FastifyRequest, reply: FastifyReply) {
     try {
       const userId = (request.user as any).userId;
-      const body   = vendorApplicationSchema.parse(request.body);
-      const vendor = await vendorService.applyAsVendor(userId, body);
-
-      return reply.code(201).send({
-        success: true,
-        message: 'Vendor application submitted. Check your email for a verification code.',
-        data: vendor,
-      });
-    } catch (error: any) {
-      const isValidation = error?.name === 'ZodError';
-      return reply.code(isValidation ? 422 : 400).send({
-        success: false,
-        error: isValidation ? error.errors : error.message,
-      });
-    }
-  }
-
-  // ── POST /vendors/verify-email ─────────────────────────────────────────────
-  // Returns a fresh accessToken with emailVerified=true so frontend can swap cookies
-  async verifyEmail(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const user = (request as any).user;
-      const { otp } = request.body as { otp: string };
-      if (!otp) return reply.code(400).send({ success: false, error: 'OTP is required' });
-
-      const result = await vendorService.verifyVendorOTP(user.userId, otp);
-
-      return reply.send({
-        success: true,
-        message: 'Email verified! Your vendor account is now active.',
-        data: result,   // { vendor, accessToken } — see vendors.service.ts
-      });
-    } catch (error: any) {
-      return reply.code(400).send({ success: false, error: error.message });
-    }
-  }
-
-  // ── POST /vendors/resend-otp ───────────────────────────────────────────────
-  async resendOTP(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const user = (request as any).user;
-      await vendorService.resendOTP(user.userId);
-      return reply.send({ success: true, message: 'Verification code sent to your email.' });
+      const vendor = await vendorService.becomeVendor(userId);
+      return reply.code(201).send({ success: true, message: 'You are now a seller', data: vendor });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });
     }
@@ -68,7 +24,8 @@ export class VendorController {
     try {
       const userId = (request.user as any).userId;
       const vendor = await vendorService.getVendorProfile(userId);
-      return reply.code(200).send({ success: true, data: vendor });
+      const { complete, missing } = vendorService.isProfileComplete(vendor);
+      return reply.code(200).send({ success: true, data: { ...vendor, profileComplete: complete, missing } });
     } catch (error: any) {
       return reply.code(404).send({ success: false, error: error.message });
     }
@@ -106,30 +63,6 @@ export class VendorController {
     }
   }
 
-  // ── GET /vendors/me/documents ──────────────────────────────────────────────
-  async getMyDocuments(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const userId = (request.user as any).userId;
-      const docs   = await vendorService.getVendorDocuments(userId);
-      return reply.code(200).send({ success: true, data: docs });
-    } catch (error: any) {
-      return reply.code(400).send({ success: false, error: error.message });
-    }
-  }
-
-  // ── POST /vendors/me/documents ─────────────────────────────────────────────
-  async uploadVendorDocument(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const userId = (request.user as any).userId;
-      const { documentType } = request.body as { documentType: string };
-      const uploadResult = (request as any).uploadResult;
-      const doc = await vendorService.uploadVendorDocument(userId, documentType, uploadResult);
-      return reply.code(201).send({ success: true, message: 'Document uploaded successfully', data: doc });
-    } catch (error: any) {
-      return reply.code(400).send({ success: false, error: error.message });
-    }
-  }
-
   // ── GET /vendors/:vendorId (public) ───────────────────────────────────────
   async getPublicProfile(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -142,7 +75,6 @@ export class VendorController {
   }
 
   // ── Admin routes ───────────────────────────────────────────────────────────
-
 
   async getAllVendors(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -168,13 +100,10 @@ export class VendorController {
     }
   }
 
-
   async suspendVendor(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { vendorId } = request.params as { vendorId: string };
-      const { reason }   = request.body as { reason: string };
-      if (!reason?.trim()) return reply.code(422).send({ success: false, error: 'Suspension reason is required' });
-      const vendor = await vendorService.suspendVendor(vendorId, reason);
+      const vendor = await vendorService.suspendVendor(vendorId);
       return reply.code(200).send({ success: true, message: 'Vendor suspended successfully', data: vendor });
     } catch (error: any) {
       return reply.code(400).send({ success: false, error: error.message });

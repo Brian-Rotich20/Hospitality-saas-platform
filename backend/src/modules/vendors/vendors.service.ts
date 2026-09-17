@@ -1,25 +1,10 @@
-// src/modules/vendors/vendors.service.ts
 import { eq, and, desc } from 'drizzle-orm';
 import { db }            from '../../config/database.js';
-import { vendors, vendorDocuments } from '../../db/schema/vendors.js';
-import { users }                    from '../../db/schema/users.js';
+import { vendors }       from '../../db/schema/vendors.js';
+import { users }         from '../../db/schema/users.js';
 import { setCache, getCache, delCache } from '../../config/redis.js';
-import { UploadResult }  from '../upload/upload.types.js';
-import {
-  sendVendorVerificationEmail,
-  sendVendorApprovedEmail,
-} from '../../utils/email.js';
-import { redis }         from '../../config/redis.js';
-import type { VendorApplicationInput, PayoutDetailsInput, UpdateVendorInput,} from './vendors.schema.js';
+import type { PayoutDetailsInput, UpdateVendorInput } from './vendors.schema.js';
 import type { VendorFilters } from './vendors.types.js';
-
-const OTP_TTL         = 15 * 60;
-const OTP_RESEND_WAIT = 60;
-
-
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 export class VendorService {
 
@@ -33,138 +18,42 @@ export class VendorService {
     return Promise.all(ops);
   }
 
-  // ── Apply as vendor ────────────────────────────────────────────────────────
-  async applyAsVendor(userId: string, data: VendorApplicationInput) {
+  // ── Become a vendor — instant, pre-filled from user data ────────────────────
+  async becomeVendor(userId: string) {
     const existing = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
-    if (existing) {
-      throw new Error('You already have a vendor application');
-    }
+    if (existing) return existing; // idempotent — no error if they hit this twice
 
     const user = await db.query.users.findFirst({
       where:   eq(users.id, userId),
-      columns: { id: true, email: true },
+      columns: { id: true, fullName: true, phone: true },
     });
     if (!user) throw new Error('User not found');
 
-    const slug = this.generateSlug(data.businessName);
+    const businessName = user.fullName || 'My Shop';
+    const slug          = this.generateSlug(businessName);
 
     const [vendor] = await db.insert(vendors).values({
       userId,
-      businessName:   data.businessName,
+      businessName,
       slug,
-      description:    data.description,
-      phoneNumber:    data.phoneNumber,
-      whatsappNumber: data.whatsappNumber,
-      website:        data.website,
-      status:         'approved',
-      verified:       false,
+      phoneNumber: user.phone,
+      status:      'approved',
+      verified:    false,
     }).returning();
 
-    if (!vendor) throw new Error('Failed to create vendor application. Please try again.');
+    if (!vendor) throw new Error('Failed to set up vendor account. Please try again.');
 
     await db.update(users)
-      .set({role: 'vendor', vendorId: vendor.id, updatedAt: new Date()})
-      .where(eq(users.id, userId));
-  
-
-    await this._sendOTP(userId, vendor.id, data.businessName, user.email)
-      .catch(err => console.error('[OTP email failed]', err));
-
-    return { vendor, otpSent: true };
-  }
-
-  // ── Send OTP (internal) ────────────────────────────────────────────────────
-  private async _sendOTP(userId: string, vendorId: string, businessName: string | undefined, email?: string) {
-    if (!email) {
-      const user = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { email: true } });
-      email = user?.email;
-    }
-    if (!email) throw new Error('User email not found');
-
-    const otp = generateOTP();
-    const key = `vendor:otp:${userId}`;
-
-    // Write to Redis FIRST (sync) — email fires non-blocking
-    await redis.setex(key, OTP_TTL, JSON.stringify({ otp, vendorId, attempts: 0 }));
-
-    setImmediate(() => {
-      sendVendorVerificationEmail({ to: email as string, businessName, otp })
-        .catch(err => console.error('[Vendor OTP email failed]', err?.message));
-    });
-
-    return { sent: true };
-  }
-
-  // ── Verify OTP — activates vendor, returns fresh JWT ──────────────────────
-  async verifyVendorOTP(userId: string, otp: string) {
-    const key    = `vendor:otp:${userId}`;
-    const stored = await redis.get(key) as string | null;
-    if (!stored) throw new Error('OTP expired or not found. Please request a new one.');
-
-    const data = JSON.parse(stored) as { otp: string; vendorId: string; attempts: number };
-
-    if (data.attempts >= 5) {
-      await redis.del(key);
-      throw new Error('Too many attempts. Please request a new OTP.');
-    }
-
-    if (data.otp !== otp) {
-      data.attempts += 1;
-      await redis.setex(key, OTP_TTL, JSON.stringify(data));
-      const remaining = 5 - data.attempts;
-      throw new Error(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
-    }
-
-    await redis.del(key);
-
-    const [vendor] = await db.update(vendors)
-      .set({ status: 'approved', verified: true, updatedAt: new Date() })
-      .where(eq(vendors.id, data.vendorId))
-      .returning();
-
-    if (!vendor) throw new Error('Vendor record not found. Please contact support.');
-
-    await db.update(users)
-      .set({ role: 'vendor', vendorId: vendor.id, verified: true, updatedAt: new Date() })
+      .set({ role: 'vendor', vendorId: vendor.id, updatedAt: new Date() })
       .where(eq(users.id, userId));
 
-    await this.invalidateCache(userId, data.vendorId);
-
-    setImmediate(async () => {
-      const user = await db.query.users.findFirst({ where: eq(users.id, userId), columns: { email: true } });
-      if (user?.email) {
-        sendVendorApprovedEmail({ to: user.email, businessName: vendor.businessName })
-          .catch(err => console.error('[Welcome email failed]', err?.message));
-      }
-    });
-
-    return { vendor };
-    // ✅ No token issuance here either — frontend just needs to know it succeeded,
-    // it can trigger a session refetch (Better Auth client does this automatically)
-  }
-
-  // ── Resend OTP ─────────────────────────────────────────────────────────────
-  async resendOTP(userId: string) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
-    if (!vendor) throw new Error('No vendor application found');
-    if (vendor.status !== 'pending_verification') throw new Error('Account is already verified');
-
-    const key    = `vendor:otp:${userId}`;
-    const stored = await redis.get(key) as string | null;
-    if (stored) {
-      const ttl = await redis.ttl(key);
-      if (ttl > OTP_TTL - OTP_RESEND_WAIT) throw new Error('Please wait 60 seconds before requesting a new code.');
-    }
-
-    await this._sendOTP(userId, vendor.id, vendor.businessName);
-    return { sent: true };
+    return vendor;
   }
 
   // ── Profile ────────────────────────────────────────────────────────────────
   isProfileComplete(vendor: any): { complete: boolean; missing: string[] } {
     const missing: string[] = [];
     if (!vendor.logo)        missing.push('logo');
-    if (!vendor.description) missing.push('description');
     if (!vendor.phoneNumber) missing.push('phone number');
     return { complete: missing.length === 0, missing };
   }
@@ -175,7 +64,7 @@ export class VendorService {
     if (cached) return cached;
 
     const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
-    if (!vendor) throw new Error('Vendor profile not found. Please complete vendor registration first.');
+    if (!vendor) throw new Error('Vendor profile not found');
 
     await setCache(cacheKey, vendor, 600);
     return vendor;
@@ -207,38 +96,8 @@ export class VendorService {
     }
 
     const [updated] = await db.update(vendors).set(updateData).where(eq(vendors.id, vendor.id)).returning();
-    await this.invalidateCache(userId);
+    await this.invalidateCache(userId, vendor.id);
     return updated;
-  }
-
-  async uploadVendorDocument(userId: string, documentType: string, uploadResult: UploadResult) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
-    if (!vendor) throw new Error('Vendor profile not found');
-
-    const existing = await db.query.vendorDocuments.findFirst({
-      where: and(eq(vendorDocuments.vendorId, vendor.id), eq(vendorDocuments.documentType, documentType)),
-    });
-
-    if (existing) {
-      const [updated] = await db.update(vendorDocuments)
-        .set({ documentUrl: uploadResult.url, fileName: uploadResult.fileName, fileSize: uploadResult.fileSize.toString(), uploadedAt: new Date() })
-        .where(eq(vendorDocuments.id, existing.id)).returning();
-      return updated;
-    }
-
-    const [doc] = await db.insert(vendorDocuments).values({
-      vendorId: vendor.id, documentType, documentUrl: uploadResult.url,
-      fileName: uploadResult.fileName, fileSize: uploadResult.fileSize.toString(),
-    }).returning();
-
-    await this.invalidateCache(userId);
-    return doc;
-  }
-
-  async getVendorDocuments(userId: string) {
-    const vendor = await db.query.vendors.findFirst({ where: eq(vendors.userId, userId) });
-    if (!vendor) throw new Error('Vendor profile not found');
-    return db.query.vendorDocuments.findMany({ where: eq(vendorDocuments.vendorId, vendor.id) });
   }
 
   async getPublicVendorProfile(vendorId: string) {
@@ -255,15 +114,14 @@ export class VendorService {
 
   // ── Admin ──────────────────────────────────────────────────────────────────
 
-
   async getAllVendors(filters?: VendorFilters) {
     const conditions: any[] = [];
     if (filters?.status) conditions.push(eq(vendors.status, filters.status as any));
 
     const rows = await db.select({
       id: vendors.id, userId: vendors.userId, businessName: vendors.businessName,
-      description: vendors.description, phoneNumber: vendors.phoneNumber, city: vendors.city,
-      status: vendors.status, verified: vendors.verified, createdAt: vendors.createdAt,
+      phoneNumber: vendors.phoneNumber, status: vendors.status, verified: vendors.verified,
+      createdAt: vendors.createdAt,
       userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
     }).from(vendors).leftJoin(users, eq(users.id, vendors.userId))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -271,12 +129,12 @@ export class VendorService {
     return rows.map(r => ({ ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } }));
   }
 
- async suspendVendor(vendorId: string, reason: string) {
+  async suspendVendor(vendorId: string) {
     const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
     if (!vendor) throw new Error('Vendor not found');
 
     const [updated] = await db.update(vendors)
-      .set({ status: 'suspended', rejectionReason: reason, updatedAt: new Date() })
+      .set({ status: 'suspended', updatedAt: new Date() })
       .where(eq(vendors.id, vendorId)).returning();
 
     await db.update(users).set({ role: 'customer' }).where(eq(users.id, vendor.userId));
@@ -287,8 +145,7 @@ export class VendorService {
   async getVendorById(vendorId: string) {
     const rows = await db.select({
       id: vendors.id, userId: vendors.userId, businessName: vendors.businessName,
-      description: vendors.description, phoneNumber: vendors.phoneNumber, city: vendors.city,
-      status: vendors.status, verified: vendors.verified, rejectionReason: vendors.rejectionReason,
+      phoneNumber: vendors.phoneNumber, status: vendors.status, verified: vendors.verified,
       createdAt: vendors.createdAt,
       userEmail: users.email, userPhone: users.phone, userFullName: users.fullName,
     }).from(vendors).leftJoin(users, eq(users.id, vendors.userId))
@@ -298,5 +155,4 @@ export class VendorService {
     const r = rows[0];
     return { ...r, user: { email: r.userEmail, phone: r.userPhone, fullName: r.userFullName } };
   }
-
 }
