@@ -11,7 +11,6 @@ import * as bookingsSchema     from '../db/schema/bookings.js';
 import * as paymentsSchema     from '../db/schema/payments.js';
 import * as payoutsSchema      from '../db/schema/payouts.js';
 import * as categoriesSchema   from '../db/schema/categories.js';
-import * as productsSchema     from '../db/schema/products.js';
 import * as reviewsSchema      from '../db/schema/reviews.js';
 import * as savedListingsSchema from '../db/schema/savedListings.js';
 import * as authSchema from '../db/schema/auth.js'; 
@@ -25,7 +24,6 @@ const schema = {
   ...paymentsSchema,
   ...payoutsSchema,
   ...categoriesSchema,
-  ...productsSchema,
   ...reviewsSchema,
   ...savedListingsSchema,
   ...authSchema,

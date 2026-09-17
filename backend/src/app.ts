@@ -21,8 +21,7 @@ import { vendorRoutes, vendorAdminRoutes } from './modules/vendors/vendors.route
 import { customerRoutes } from './modules/customers/customers.route.js';
 import { uploadRoutes } from './modules/upload/upload.routes.js';
 import { listingRoutes } from './modules/listings/listings.routes.js';
-import { categoryRoutes } from './modules/categories/categories.routes.js';  // ✅ fixed
-import { productRoutes } from './modules/products/products.routes.js';       // ✅ added
+import { categoryRoutes } from './modules/categories/categories.routes.js';  // ✅ fixed    // ✅ added
 import { availabilityRoutes } from './modules/availability/availability.routes.js';
 import { bookingRoutes, bookingAdminRoutes } from './modules/bookings/bookings.routes.js';
 import { payoutRoutes, payoutAdminRoutes } from './modules/payouts/payouts.routes.js';
@@ -187,7 +186,6 @@ export async function buildApp() {
   await fastify.register(uploadRoutes, { prefix: '/api/upload' });
   await fastify.register(listingRoutes, { prefix: '/api/listings' });
   await fastify.register(categoryRoutes, { prefix: '/api/categories' });
-  await fastify.register(productRoutes, { prefix: '/api/products' });
   await fastify.register(availabilityRoutes, { prefix: '/api' });
   await fastify.register(bookingRoutes, { prefix: '/api/bookings' });
   await fastify.register(bookingAdminRoutes, { prefix: '/api/admin/bookings' });

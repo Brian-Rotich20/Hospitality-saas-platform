@@ -15,7 +15,7 @@ export const reviews = pgTable('reviews', {
   id:         uuid('id').primaryKey().defaultRandom(),
 
   listingId:  uuid('listing_id').notNull().references(() => listings.id, { onDelete: 'cascade' }),
-  vendorId:   uuid('vendor_id').notNull().references(() => vendors.id,   { onDelete: 'cascade' }),
+  vendorId:   uuid('vendor_id').notNull().references(() => vendors.id,   { onDelete: 'cascade' }), //Vendor of the listing being reviewed
   customerId: uuid('customer_id').notNull().references(() => users.id,   { onDelete: 'cascade' }),
   bookingId:  uuid('booking_id').notNull().references(() => bookings.id, { onDelete: 'cascade' }),
 

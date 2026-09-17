@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, timestamp, boolean, pgEnum, text } from 'drizzl
 
 export const userRoleEnum = pgEnum('user_role', ['customer', 'vendor', 'admin']);
 
+//Self-referencing relationship for vendors, since a user can be a vendor and have a vendor profile
 export const users = pgTable('users', {
   id:                uuid('id').primaryKey().defaultRandom(),
   email:             varchar('email', { length: 255 }).notNull().unique(),
