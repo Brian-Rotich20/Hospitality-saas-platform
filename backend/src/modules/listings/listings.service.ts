@@ -6,10 +6,29 @@ import type { ListingFilters }           from './listings.types.js';
 import type { CreateListingInput, UpdateListingInput } from './listings.schema.js';
 
 const LISTING_SELECT = `
-  l.id, l.vendor_id, l.category_id, l.title, l.slug, l.description,
-  l.location, l.pricing_type, l.price, l.min_price, l.max_price,
-  l.currency, l.photos, l.cover_photo,
-  l.status, l.views, l.bookings_count, l.created_at, l.updated_at,
+  l.id,
+  l.vendor_id,
+  l.category_id,
+  l.title,
+  l.slug,
+  l.description,
+
+  l.location,
+  l.pricing_type,
+  l.price,
+  l.min_price,
+  l.max_price,
+
+  l.currency,
+  l.photos,
+  l.cover_photo,
+
+  l.status,
+  l.views,
+  l.bookings_count,
+  l.created_at,
+  l.updated_at,
+
   json_build_object(
     'id',             v.id,
     'businessName',   v.business_name,
@@ -18,14 +37,15 @@ const LISTING_SELECT = `
     'whatsappNumber', v.whatsapp_number,
     'phoneNumber',    v.phone_number,
     'verified',       v.verified
-  ) as vendor,
+  ) AS vendor,
+
   json_build_object(
-    'id',         c.id,
-    'name',       c.name,
-    'slug',       c.slug,
-    'icon',       c.icon,
-    'parentId',   c.parent_id
-  ) as category
+    'id',       c.id,
+    'name',     c.name,
+    'slug',     c.slug,
+    'icon',     c.icon,
+    'parentId', c.parent_id
+  ) AS category
 `;
 
 const LISTING_JOINS = `
