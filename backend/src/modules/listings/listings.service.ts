@@ -34,7 +34,6 @@ const LISTING_SELECT = `
     'businessName',   v.business_name,
     'slug',           v.slug,
     'logo',           v.logo,
-    'whatsappNumber', v.whatsapp_number,
     'phoneNumber',    v.phone_number,
     'verified',       v.verified
   ) AS vendor,
