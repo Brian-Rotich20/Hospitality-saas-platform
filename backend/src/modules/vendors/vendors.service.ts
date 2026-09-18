@@ -76,6 +76,7 @@ export class VendorService {
 
     const updateData: Record<string, any> = { ...data, updatedAt: new Date() };
     if (data.businessName) updateData.slug = this.generateSlug(data.businessName);
+    if(!vendor.onboardedAt) updateData.onboardedAt = new Date();
 
     const [updated] = await db.update(vendors).set(updateData).where(eq(vendors.id, vendor.id)).returning();
     await this.invalidateCache(userId, vendor.id);

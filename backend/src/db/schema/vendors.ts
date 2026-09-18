@@ -34,6 +34,8 @@ export const vendors = pgTable('vendors', {
   // Admin
   status: vendorStatusEnum('status').notNull().default('approved'),
 
+  onboardedAt: timestamp('onboarded_at'),
+
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
