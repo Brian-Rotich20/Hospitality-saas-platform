@@ -7,27 +7,27 @@ import type { CreateListingInput, UpdateListingInput } from './listings.schema.j
 
 const LISTING_SELECT = `
   l.id,
-  l.vendor_id,
-  l.category_id,
+  l.vendor_id      AS "vendorId",
+  l.category_id    AS "categoryId",
   l.title,
   l.slug,
   l.description,
 
   l.location,
-  l.pricing_type,
+  l.pricing_type   AS "pricingType",
   l.price,
-  l.min_price,
-  l.max_price,
+  l.min_price      AS "minPrice",
+  l.max_price      AS "maxPrice",
 
   l.currency,
   l.photos,
-  l.cover_photo,
+  l.cover_photo    AS "coverPhoto",
 
   l.status,
   l.views,
-  l.bookings_count,
-  l.created_at,
-  l.updated_at,
+  l.bookings_count AS "bookingsCount",
+  l.created_at     AS "createdAt",
+  l.updated_at     AS "updatedAt",
 
   json_build_object(
     'id',             v.id,
