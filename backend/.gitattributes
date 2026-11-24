@@ -1,0 +1,4 @@
+# Migration files are hashed by drizzle-orm (sha256 of file text). Line-ending
+# conversion on checkout would change the hash and break migration tracking.
+src/platform/database/migrations/**/*.sql text eol=lf
+src/platform/database/migrations/**/*.json text eol=lf

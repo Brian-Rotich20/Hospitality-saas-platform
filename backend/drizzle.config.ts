@@ -2,14 +2,14 @@
 import 'dotenv/config';
 import { defineConfig } from 'drizzle-kit';
 
-// 🔍 Debug: confirm which database you're connecting to
-console.log("DB:", process.env.DATABASE_URL);
-
+// Migrations are the only supported way to change the schema. `drizzle-kit push` is
+// intentionally not exposed as a script (see docs/refactor/PHASE-0-REPORT.md).
 export default defineConfig({
-  schema: './src/db/schema/index.ts',
-  out: './src/db/migrations',
+  schema: './src/platform/database/schema/index.ts',
+  out: './src/platform/database/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL ?? '',
   },
+  strict: true,
 });
