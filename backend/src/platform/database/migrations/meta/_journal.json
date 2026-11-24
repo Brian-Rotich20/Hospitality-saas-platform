@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795528241566,
+      "tag": "0000_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795530672473,
+      "tag": "0001_marketplace_refactor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795530692192,
+      "tag": "0002_booking_lifecycle_backfill_and_exclusion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795544761800,
+      "tag": "0003_payments_review_and_outbox_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795548392125,
+      "tag": "0004_foreign_key_indexes",
+      "breakpoints": true
+    }
+  ]
+}
