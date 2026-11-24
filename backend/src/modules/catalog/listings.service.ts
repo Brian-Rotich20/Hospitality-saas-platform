@@ -16,7 +16,7 @@ const SELECT = sql.raw(`
   l.id, l.vendor_id AS "vendorId", l.category_id AS "categoryId", l.title, l.slug, l.description, l.location,
   l.pricing_type AS "pricingType", l.price, l.min_price AS "minPrice", l.max_price AS "maxPrice", l.currency,
   l.photos, l.cover_photo AS "coverPhoto", l.status, l.views, l.bookings_count AS "bookingsCount",
-  l.rating, l.review_count AS "reviewCount", l.created_at AS "createdAt", l.updated_at AS "updatedAt",
+  l.rating::float8 AS rating, l.review_count AS "reviewCount", l.created_at AS "createdAt", l.updated_at AS "updatedAt",
   json_build_object('id', v.id, 'businessName', v.business_name, 'slug', v.slug, 'logo', v.logo,
                     'phoneNumber', v.phone_number, 'verified', v.verified) AS vendor,
   json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'icon', c.icon, 'parentId', c.parent_id) AS category`);
@@ -24,7 +24,19 @@ const FROM = sql.raw(`FROM listings l JOIN vendors v ON v.id = l.vendor_id LEFT 
 const PUBLIC = sql.raw(`l.status = 'active' AND v.status = 'approved' AND `);
 const publicWhere = (): SQL => sql`${PUBLIC}${vendorEntitledSql('v.id')}`;
 
-type ListingView = Record<string, unknown> & { id: string; vendorId: string; status: string; slug: string };
+/**
+ * API contract for listing money and rating fields: prices are decimal strings
+ * ("50000.00", exact; null when not set), rating is a number (one decimal) or null.
+ */
+type ListingView = Record<string, unknown> & {
+  id: string; vendorId: string; status: string; slug: string; pricingType: string; currency: string;
+  price: string | null; minPrice: string | null; maxPrice: string | null; rating: number | null; reviewCount: number;
+};
+
+/** Drizzle returns numeric columns as strings; the API returns rating as a number. */
+function present<T extends { rating: string | null }>(row: T): Omit<T, 'rating'> & { rating: number | null } {
+  return { ...row, rating: row.rating === null ? null : Number(row.rating) };
+}
 
 function slugify(title: string): string {
   const base = title.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'listing';
@@ -53,7 +65,8 @@ async function ownedListing(listingId: string, vendorId: string, tx: Db = db): P
 }
 
 async function catalogKey(suffix: string): Promise<string> {
-  return `catalog:${await cache.version('catalog')}:${suffix}`;
+  // v2: rating became a number; never serve entries cached with the old string shape.
+  return `catalog:v2:${await cache.version('catalog')}:${suffix}`;
 }
 
 export const listingsService = {
@@ -76,7 +89,8 @@ export const listingsService = {
       coverPhoto: data.coverPhoto ?? data.photos[0],
       status: 'draft',
     }).returning();
-    return row;
+    if (!row) throw new Error('listing insert returned no row');
+    return present(row);
   },
 
   async update(listingId: string, vendorId: string, data: UpdateListingInput) {
@@ -105,7 +119,8 @@ export const listingsService = {
       updatedAt: new Date(),
     }).where(eq(listings.id, listingId)).returning();
     await cache.bump('catalog');
-    return row;
+    if (!row) throw new NotFoundError('Listing');
+    return present(row);
   },
 
   /** Publishing requires an entitled subscription; the caller passes the vendor's entitlement. */
@@ -116,10 +131,11 @@ export const listingsService = {
       if ((current.photos ?? []).length < 3) throw new ValidationError('Add at least 3 photos before publishing');
       validatePricing(current);
     }
-    if (current.status === status) return current;
+    if (current.status === status) return present(current);
     const [row] = await db.update(listings).set({ status, updatedAt: new Date() }).where(and(eq(listings.id, listingId), eq(listings.vendorId, vendorId))).returning();
     await cache.bump('catalog');
-    return row;
+    if (!row) throw new NotFoundError('Listing');
+    return present(row);
   },
 
   async remove(listingId: string, vendorId: string) {

@@ -9,6 +9,12 @@ import { sessions, accounts, verifications } from '../../platform/database/schem
 import { env, isProduction } from '../../platform/config/env.js';
 import { logger } from '../../platform/logger.js';
 import { otpService } from './otp.service.js';
+import { enqueueOutbox } from '../notifications/outbox.js';
+
+/** Password-reset link lifetime. */
+export const PASSWORD_RESET_TTL_MINUTES = 60;
+/** At most one reset email per account within this window. */
+export const PASSWORD_RESET_EMAIL_WINDOW_MINUTES = 5;
 
 const google = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
   ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
@@ -23,6 +29,10 @@ export const auth = betterAuth({
   advanced: {
     database: { generateId: () => randomUUID() },
     useSecureCookies: isProduction,
+    // Better Auth skips origin/callbackURL checks under NODE_ENV=test by default; keep them
+    // on everywhere so tests exercise the production behaviour (trusted origins = CORS_ORIGINS
+    // plus the BETTER_AUTH_URL origin).
+    disableOriginCheck: false,
   },
 
   database: drizzleAdapter(db, {
@@ -40,7 +50,26 @@ export const auth = betterAuth({
     },
   },
 
-  emailAndPassword: { enabled: true, requireEmailVerification: false, minPasswordLength: 8 },
+  emailAndPassword: {
+    enabled: true, requireEmailVerification: false, minPasswordLength: 8,
+    // Password reset (Better Auth flow): POST /request-password-reset -> email ->
+    // POST /reset-password { token, newPassword }. Tokens are single-use and expire.
+    resetPasswordTokenExpiresIn: PASSWORD_RESET_TTL_MINUTES * 60,
+    // A reset signs every existing session out (a stolen session can't survive it).
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, token }) => {
+      // Delivered by the worker through the outbox. At most one email per account per
+      // window, so the endpoint can't be used to flood someone's inbox. Errors are logged,
+      // never surfaced: the response must not reveal whether the account exists.
+      try {
+        const windowStart = Math.floor(Date.now() / (PASSWORD_RESET_EMAIL_WINDOW_MINUTES * 60_000));
+        await enqueueOutbox(db, 'auth.password_reset', { userId: user.id, token, validMinutes: PASSWORD_RESET_TTL_MINUTES },
+          { dedupeKey: `password-reset:${user.id}:${windowStart}` });
+      } catch (err) {
+        logger.error({ userId: user.id, err: (err as Error).message }, 'password reset email could not be queued');
+      }
+    },
+  },
   socialProviders: google,
   plugins: [admin({ defaultRole: 'customer', adminRoles: ['admin'] })],
 

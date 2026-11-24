@@ -15,6 +15,7 @@ export const idempotencyHeaders = z.object({
   'idempotency-key': z.string().min(8).max(100).regex(/^[A-Za-z0-9_\-:.]+$/).optional(),
 }).passthrough();
 
-export function ok<T>(data: T, extra: Record<string, unknown> = {}) {
-  return { success: true as const, data, ...extra };
+export function ok<T, E extends Record<string, unknown> = Record<never, never>>(data: T, extra?: E): { success: true; data: T } & E {
+  // The spread keeps every extra field; the assertion only restores the precise type.
+  return { success: true as const, data, ...extra } as { success: true; data: T } & E;
 }

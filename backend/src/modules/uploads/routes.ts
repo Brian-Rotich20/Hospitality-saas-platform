@@ -51,24 +51,33 @@ function purposeAllowed(role: string, purpose: Purpose) {
 export const uploadRoutes: FastifyPluginAsyncZod = async (app) => {
   const handle = async (request: FastifyRequest, max: number) => {
     const authCtx = requireUser(request);
-    let purpose: Purpose = 'listing_photo';
+    // Required, and it must arrive before the first file: files are processed as they
+    // stream in, so there is no "default" purpose a late or missing field could fall back to.
+    let purpose: Purpose | null = null;
     const files: MultipartFile[] = [];
     const results = [];
     for await (const part of request.parts({ limits: { fileSize: env.MAX_FILE_SIZE, files: max, fields: 5 } })) {
       if (part.type === 'field') {
         if (part.fieldname === 'uploadType' || part.fieldname === 'purpose') {
           const p = z.enum(PURPOSES).safeParse(part.value);
-          if (!p.success) throw new ValidationError(`uploadType must be one of ${PURPOSES.join(', ')}`);
+          if (!p.success) throw new ValidationError(`uploadType must be one of ${PURPOSES.join(', ')}`, [{ path: '/uploadType', message: `must be one of ${PURPOSES.join(', ')}` }]);
           purpose = p.data;
         }
         continue;
+      }
+      if (!purpose) {
+        part.file.resume(); // discard the file without buffering or storing it
+        throw new ValidationError(
+          'Send the uploadType field before the file in the multipart form',
+          [{ path: '/uploadType', message: `required, and must precede the file part; one of ${PURPOSES.join(', ')}` }],
+        );
       }
       purposeAllowed(authCtx.role, purpose);
       files.push(part);
       // Process each file as it arrives so at most one is buffered at a time.
       results.push(await processImage(part, authCtx.userId, purpose));
     }
-    if (files.length === 0) throw new ValidationError('No file uploaded');
+    if (files.length === 0) throw new ValidationError('No file uploaded', [{ path: '/file', message: 'required' }]);
     return results;
   };
 

@@ -51,6 +51,20 @@ booking. Customers pay vendors directly, outside LinkMart.
 - **Subscription money** is an integer in minor units (`amountMinor`, KES cents) plus `currency`. Display `amountMinor / 100`.
 - Listing `price`/`minPrice`/`maxPrice` are display prices set by the vendor (KES). They are informational only: nothing is charged.
 
+### Response types that matter
+| Field | Type | Example |
+| --- | --- | --- |
+| Listing `price`, `minPrice`, `maxPrice` | **string** (exact decimal) or `null` | `"50000.00"` |
+| Listing `rating` | **number** (one decimal) or `null` until the first review | `4.5` |
+| Listing `reviewCount`, `views`, `bookingsCount` | integer | `12` |
+| Review `rating` | integer 1–5 | `4` |
+| Review stats `average` | **number** or `null` | `4.5` |
+| Subscription `amountMinor` | integer (KES cents) | `150000` |
+| Timestamps | ISO-8601 string (UTC) | `"2026-11-24T09:30:00.000Z"` |
+| Calendar dates | `YYYY-MM-DD` string | `"2026-12-20"` |
+
+The listing and review response types are declared in `openapi.json` and enforced when responses are serialised.
+
 ### Authentication
 Cookie-based sessions from Better Auth. Send every request with credentials (`fetch(url, { credentials: 'include' })`).
 The cookie is `better-auth.session_token` (`__Secure-better-auth.session_token` in production). It is HttpOnly, so never
@@ -80,9 +94,13 @@ Proxied to Better Auth. The ones the frontend needs:
 | POST | `/api/auth/sign-in/email` | `{ email, password }` | Sets the session cookie |
 | POST | `/api/auth/sign-out` | – | Clears the session |
 | GET | `/api/auth/get-session` | – | Current session and user, or `null` |
-| POST | `/api/auth/sign-in/social` | `{ provider: 'google', callbackURL }` | Only if Google is configured on the server |
+| POST | `/api/auth/sign-in/social` | `{ provider: 'google', callbackURL }` | Only if Google is configured on the server. `callbackURL` must be relative or on a trusted origin (else 403). Google returns to `{BETTER_AUTH_URL}/api/auth/callback/google` |
+| POST | `/api/auth/request-password-reset` | `{ email }` | Always **200** `{ status: true, message }`, whether or not the account exists (no enumeration). Emails a link to `{FRONTEND_URL}/auth/reset-password?token=…`, valid **60 minutes**, single use. At most one email per account per 5 minutes. Rate limit 5 per 15 min per client IP |
+| POST | `/api/auth/reset-password` | `{ token, newPassword (≥8) }` | 200 `{ status: true }`. Signs out every existing session. **400** with `INVALID_TOKEN` if the token is unknown, already used or expired; 400 if the password is too short. Rate limit 10 per 15 min |
 
-Rate limit: 30/min. Better Auth admin operations that would bypass LinkMart's rules are **disabled for everyone**
+Auth endpoints return Better Auth's own JSON (`{ code, message }` on errors), not the LinkMart envelope.
+Rate limit: 30/min for the other auth endpoints. Requests from an `Origin` outside `CORS_ORIGINS` are refused (403).
+Better Auth admin operations that would bypass LinkMart's rules are **disabled for everyone**
 (403 `AUTH_OPERATION_DISABLED`): `admin/set-role`, `admin/create-user`, `admin/remove-user`, `admin/impersonate-user`,
 `admin/stop-impersonating`, `admin/set-user-password`, `admin/update-user`.
 
@@ -221,9 +239,19 @@ for 30 days after completion, and read-only after cancellation. Polling-based (n
 ## 10. Uploads — `/api/upload`
 | Method | Path | Guard | Request | Notes |
 | --- | --- | --- | --- | --- |
-| POST | `/image` | User | multipart: field `uploadType` (**before** the file part) ∈ `listing_photo, vendor_logo, profile_photo`; one file | 201 `{ id, url, publicId, bytes, mimeType: 'image/webp', width, height }`. `listing_photo` and `vendor_logo` are vendor-only (403 `VENDOR_REQUIRED`). Type is detected from the bytes (JPEG, PNG, WebP); max `MAX_FILE_SIZE` (5 MB default). Rate limit 30/min |
+| POST | `/image` | User | multipart: field `uploadType` **first**, then one file part. `uploadType` ∈ `listing_photo, vendor_logo, profile_photo` | 201 `{ id, url, publicId, bytes, mimeType: 'image/webp', width, height }`. `listing_photo` and `vendor_logo` are vendor-only (403 `VENDOR_REQUIRED`). Type is detected from the bytes (JPEG, PNG, WebP); max `MAX_FILE_SIZE` (5 MB default). Rate limit 30/min |
 | POST | `/images` | User | same, up to 10 files | 201 array. Rate limit 10/min |
 | DELETE | `/file` | User (owner) or admin | `{ publicId }` | 404 if not yours |
+
+**Multipart field order is required.** Files are processed as they stream in, so `uploadType` must be
+appended to the `FormData` before the file(s):
+```js
+const form = new FormData();
+form.append('uploadType', 'profile_photo'); // first
+form.append('file', file);                  // then the file(s)
+```
+If `uploadType` is missing, invalid, or arrives after a file, the request fails with **422 `VALIDATION_FAILED`**
+(`details: [{ path: '/uploadType', … }]`) and nothing is stored.
 
 ---
 
@@ -326,6 +354,20 @@ Review reasons: `amount_or_currency_mismatch`, `reference_mismatch`, `paid_settl
 `GET /health` (liveness, always 200 while the process runs) and `GET /ready` (`{ status, database, redis }`; 503 when the
 database is unreachable; Redis down is reported but not fatal).
 
-## 15. Rate limits (per user when signed in, else per IP)
-Global 300/min. Tighter: auth 30/min, OTP verify 10/min, OTP resend 3/min, onboarding 5/min, booking requests 10/min,
-subscription payments 5/min, messages 20/min, uploads 30/min (single) or 10/min (multi), admin re-verify 10/min.
+## 15. Rate limits
+**Who is counted:**
+- A request with a **valid session** is counted against **that account**, wherever it comes from. Users behind the
+  same proxy or network have independent limits.
+- A request **without a valid session** (sign-in, sign-up, password reset, public browsing, or an expired or forged
+  cookie) is counted against the **client IP**. Behind the frontend's `/api` proxy the client IP comes from
+  `X-Forwarded-For`, believed only from proxies allowed by the server's `TRUST_PROXY` setting. Otherwise it's the
+  connecting address.
+
+**Limits (per account or per client IP, per window):** global 300/min; sign-in, sign-up and other auth 30/min;
+password-reset request 5 per 15 min; password reset 10 per 15 min; OTP verify 10/min; OTP resend 3/min; vendor
+onboarding 5/min; booking requests 10/min; subscription payment starts 5/min; messages 20/min; uploads 30/min
+(single) or 10/min (multiple); admin re-verify 10/min. Webhooks: 300/min. `/health` and `/ready` are not limited.
+
+A route with its own limit counts only against that limit; all other routes share the global 300/min. Exceeding a limit returns **429 `RATE_LIMITED`** with
+`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset` and `Retry-After` headers. In production Better Auth also
+applies its own short-window limits to sign-in, sign-up and password-reset requests (3 per 10 s and 3 per 60 s per IP).

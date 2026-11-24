@@ -44,6 +44,15 @@ export const templates = {
     };
   },
 
+  passwordReset(name: string, token: string, validMinutes: number): Rendered {
+    return {
+      subject: 'Reset your LinkMart password',
+      html: layout('Reset your password', p(`Hi ${esc(name)}, we received a request to reset your password. The link works once and expires in ${esc(validMinutes)} minutes.`)
+        + p("If you didn't ask for this, ignore this email: your password stays the same."),
+      { label: 'Choose a new password', path: `/auth/reset-password?token=${encodeURIComponent(token)}` }),
+    };
+  },
+
   bookingRequested(vendorName: string, listingTitle: string, dates: string, bookingId: string, respondByIso: string): Rendered {
     return {
       subject: `New booking request: ${listingTitle}`,

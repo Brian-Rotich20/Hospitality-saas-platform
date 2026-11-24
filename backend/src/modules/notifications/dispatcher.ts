@@ -21,6 +21,7 @@ import { mailer } from '../../platform/mailer/index.js';
 import { templates, type Rendered } from '../../platform/mailer/templates.js';
 import { formatMoney, toCalendarDate } from '../../platform/time.js';
 import { logger } from '../../platform/logger.js';
+import { SENSITIVE_OUTBOX_TOPICS } from './outbox.js';
 
 export const OUTBOX_MAX_ATTEMPTS = 8;
 const LEASE_MS = 5 * 60_000;
@@ -57,6 +58,12 @@ async function vendorContact(vendorId: string) {
 async function render(row: OutboxRow): Promise<Mail[]> {
   const p = row.payload;
   switch (row.topic) {
+    case 'auth.password_reset': {
+      const token = str(p.token);
+      if (!token) return []; // already scrubbed
+      const u = await db.query.users.findFirst({ where: eq(users.id, str(p.userId)), columns: { email: true, fullName: true } });
+      return u ? [{ to: u.email, rendered: templates.passwordReset(u.fullName ?? 'there', token, Number(p.validMinutes ?? 60)) }] : [];
+    }
     case 'booking.requested': {
       const c = await bookingContext(str(p.bookingId));
       if (!c?.vendorEmail) return [];
@@ -148,7 +155,11 @@ async function deliver(row: OutboxRow): Promise<'delivered' | 'retry' | 'dead'> 
       delivered = i + 1;
       await db.update(outbox).set({ deliveredCount: delivered }).where(eq(outbox.id, row.id));
     }
-    await db.update(outbox).set({ processedAt: new Date(), lastError: null, deliveredCount: delivered }).where(eq(outbox.id, row.id));
+    await db.update(outbox).set({
+      processedAt: new Date(), lastError: null, deliveredCount: delivered,
+      // Credentials (reset tokens) are not kept once the email has gone out.
+      ...(SENSITIVE_OUTBOX_TOPICS.has(row.topic) ? { payload: { userId: row.payload.userId ?? null, scrubbed: true } } : {}),
+    }).where(eq(outbox.id, row.id));
     return 'delivered';
   } catch (err) {
     const message = (err as Error).message.slice(0, 500);

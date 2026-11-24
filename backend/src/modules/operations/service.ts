@@ -10,6 +10,7 @@ import { QUEUES, describeJob, getQueue, liveWorkers, queueStats, withQueueTimeou
 import { pingDatabase } from '../../platform/database/client.js';
 import { pingRedis } from '../../platform/cache/redis.js';
 import { recordAudit } from '../../app/audit.js';
+import { SENSITIVE_OUTBOX_TOPICS } from '../notifications/outbox.js';
 import { ConflictError, NotFoundError, ServiceUnavailableError } from '../../app/errors.js';
 
 async function orUnavailable<T>(p: Promise<T>): Promise<T> {
@@ -59,16 +60,18 @@ export const operationsService = {
     return describeJob(job);
   },
 
-  listOutbox(f: { state: 'failed' | 'pending' | 'retrying'; topic?: string | undefined; limit: number; offset: number }) {
+  async listOutbox(f: { state: 'failed' | 'pending' | 'retrying'; topic?: string | undefined; limit: number; offset: number }) {
     const conds: SQL[] = [isNull(outbox.processedAt)];
     if (f.state === 'failed') conds.push(isNotNull(outbox.failedAt));
     else conds.push(isNull(outbox.failedAt));
     if (f.state === 'retrying') conds.push(sql`${outbox.attempts} > 0`);
     if (f.topic) conds.push(eq(outbox.topic, f.topic));
-    return db.select({
+    const rows = await db.select({
       id: outbox.id, topic: outbox.topic, payload: outbox.payload, attempts: outbox.attempts, deliveredCount: outbox.deliveredCount,
       lastError: outbox.lastError, availableAt: outbox.availableAt, failedAt: outbox.failedAt, createdAt: outbox.createdAt,
     }).from(outbox).where(and(...conds)).orderBy(desc(outbox.createdAt)).limit(f.limit).offset(f.offset);
+    // Never expose credentials (e.g. password-reset tokens) to operators.
+    return rows.map((r) => (SENSITIVE_OUTBOX_TOPICS.has(r.topic) ? { ...r, payload: { redacted: true } } : r));
   },
 
   /** Re-queue a dead-lettered notification. Emails already sent for it are not re-sent. */

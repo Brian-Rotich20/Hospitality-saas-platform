@@ -46,6 +46,29 @@ export const searchListingsSchema = z.object({
   offset: z.coerce.number().int().min(0).max(10_000).default(0),
 });
 
+// ── Response contract (documented in OpenAPI; also enforced on serialisation) ──
+// Loose objects: only the fields whose types are part of the contract are declared; all
+// other listing fields pass through unchanged.
+const money = z.string().regex(/^\d+(\.\d{1,2})?$/).nullable()
+  .describe('Display price as an exact decimal string, e.g. "50000.00"; null when not set. Informational only: nothing is charged.');
+export const listingView = z.looseObject({
+  id: z.string(),
+  vendorId: z.string(),
+  slug: z.string(),
+  status: z.string(),
+  pricingType: z.string(),
+  price: money,
+  minPrice: money,
+  maxPrice: money,
+  currency: z.string(),
+  rating: z.number().nullable().describe('Average rating, one decimal (e.g. 4.5); null until the first review'),
+  reviewCount: z.number().int(),
+});
+const envelope = <T extends z.ZodType>(data: T) => z.looseObject({ success: z.literal(true), data });
+export const listingResponse = envelope(listingView);
+export const listingListResponse = envelope(z.array(listingView));
+export const listingSearchResponse = z.looseObject({ success: z.literal(true), data: z.array(listingView), count: z.number().int(), total: z.number().int() });
+
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 export type UpdateListingInput = z.infer<typeof updateListingSchema>;
 export type SearchListingsInput = z.infer<typeof searchListingsSchema>;
