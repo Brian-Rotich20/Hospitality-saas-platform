@@ -211,7 +211,7 @@ describe('cross-vendor and cross-customer isolation', () => {
     const pub = await call('GET', `/api/vendors/${v.vendorId}`);
     expect(pub.statusCode).toBe(200);
     expect(pub.body).not.toContain('0011223344');
-    expect(Object.keys(json(pub).data).sort()).toEqual(['businessName', 'createdAt', 'id', 'logo', 'phoneNumber', 'slug', 'verified']);
+    expect(Object.keys(json(pub).data).sort()).toEqual(['businessEmail', 'businessName', 'createdAt', 'id', 'logo', 'phoneNumber', 'slug', 'verified', 'whatsappNumber']);
 
     const lid = await makeListing(v);
     const c = await makeCustomer();

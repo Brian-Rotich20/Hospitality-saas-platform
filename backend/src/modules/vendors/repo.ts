@@ -6,9 +6,14 @@ import { users } from '../../platform/database/schema/users.js';
 export type VendorRow = typeof vendors.$inferSelect;
 export type VendorStatus = VendorRow['status'];
 
-/** Fields safe to show anyone. Payout details, user linkage and admin fields are excluded. */
+/**
+ * Fields safe to show anyone: the business identity and its public contact (business email,
+ * phone, WhatsApp). The owner's login email, payout details, user linkage and admin fields
+ * are excluded.
+ */
 export const publicVendorColumns = {
-  id: true, businessName: true, slug: true, logo: true, phoneNumber: true, verified: true, createdAt: true,
+  id: true, businessName: true, slug: true, logo: true, phoneNumber: true, businessEmail: true, whatsappNumber: true,
+  verified: true, createdAt: true,
 } as const;
 
 export const vendorsRepo = {

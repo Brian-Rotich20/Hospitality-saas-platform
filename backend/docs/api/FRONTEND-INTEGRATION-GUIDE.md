@@ -71,8 +71,12 @@ payments (card via Paystack, or M-Pesa STK Push).
 
 - `GET /api/vendors/me` returns the profile, `profileComplete`, `missing[]` (e.g. `logo`, `phone number`) and
   `subscription` (the entitlement). Use `missing` to prompt for completion.
-- `PUT /api/vendors/me { businessName?, phoneNumber?, logo? }`. Upload the logo first with
-  `POST /api/upload/image` (`uploadType=vendor_logo`) and send the returned `url`.
+- `PUT /api/vendors/me { businessName?, logo?, businessEmail?, phoneNumber?, whatsappNumber? }`. Upload the logo first
+  with `POST /api/upload/image` (`uploadType=vendor_logo`) and send the returned `url`.
+- **Business contact** (business email, phone, WhatsApp) lives on the vendor profile and is shown publicly on every
+  listing (`listing.vendor.businessEmail / phoneNumber / whatsappNumber`). It is separate from the login email. Send
+  `null` or `""` to clear a field; numbers come back in E.164 (`+254712345678`). `GET /api/vendors/me` returns
+  `contactMissing[]` with the fields still needed to publish.
 - Payout details (`POST /api/vendors/me/payout-details`) exist but **LinkMart does not pay vendors**. Hide this
   screen unless the product decides otherwise (decision D9).
 - If an admin suspends the vendor, mutating vendor actions return 403 `VENDOR_SUSPENDED`. Show a banner; billing
@@ -84,7 +88,8 @@ payments (card via Paystack, or M-Pesa STK Push).
   prices, photos). Upload photos first (`POST /api/upload/images`, `uploadType=listing_photo`, put the `uploadType`
   field **before** the files in the form data).
 - Publish or pause: `PATCH /api/listings/:id/status { status: 'active' | 'paused' }`. Publishing requires an entitled
-  subscription: on 403 `SUBSCRIPTION_INACTIVE`, link to billing.
+  subscription (on 403 `SUBSCRIPTION_INACTIVE`, link to billing) and a complete business contact (on 422
+  `BUSINESS_CONTACT_REQUIRED`, `details.missing` names the fields; link to the business profile, then retry).
 - Edit: `PUT /api/listings/:id`. The slug never changes, so shared links keep working.
 - Delete: `DELETE /api/listings/:id`. 409 `LISTING_HAS_BOOKINGS` means open or upcoming bookings exist.
 - Own listings (all statuses): `GET /api/listings/me`.

@@ -7,7 +7,7 @@ import { categories } from '../../platform/database/schema/categories.js';
 import { vendors } from '../../platform/database/schema/vendors.js';
 import { cache } from '../../platform/cache/redis.js';
 import { vendorEntitledSql } from '../subscriptions/service.js';
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../app/errors.js';
+import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../app/errors.js';
 import type { CreateListingInput, SearchListingsInput, UpdateListingInput } from './listings.schema.js';
 
 export type ListingRow = typeof listings.$inferSelect;
@@ -18,7 +18,8 @@ const SELECT = sql.raw(`
   l.photos, l.cover_photo AS "coverPhoto", l.status, l.views, l.bookings_count AS "bookingsCount",
   l.rating::float8 AS rating, l.review_count AS "reviewCount", l.created_at AS "createdAt", l.updated_at AS "updatedAt",
   json_build_object('id', v.id, 'businessName', v.business_name, 'slug', v.slug, 'logo', v.logo,
-                    'phoneNumber', v.phone_number, 'verified', v.verified) AS vendor,
+                    'phoneNumber', v.phone_number, 'businessEmail', v.business_email,
+                    'whatsappNumber', v.whatsapp_number, 'verified', v.verified) AS vendor,
   json_build_object('id', c.id, 'name', c.name, 'slug', c.slug, 'icon', c.icon, 'parentId', c.parent_id) AS category`);
 const FROM = sql.raw(`FROM listings l JOIN vendors v ON v.id = l.vendor_id LEFT JOIN categories c ON c.id = l.category_id`);
 const PUBLIC = sql.raw(`l.status = 'active' AND v.status = 'approved' AND `);
@@ -65,8 +66,9 @@ async function ownedListing(listingId: string, vendorId: string, tx: Db = db): P
 }
 
 async function catalogKey(suffix: string): Promise<string> {
-  // v2: rating became a number; never serve entries cached with the old string shape.
-  return `catalog:v2:${await cache.version('catalog')}:${suffix}`;
+  // v3: the embedded vendor gained its public business contact (email, WhatsApp); v2: rating
+  // became a number. Never serve entries cached with an older shape.
+  return `catalog:v3:${await cache.version('catalog')}:${suffix}`;
 }
 
 export const listingsService = {
@@ -123,11 +125,20 @@ export const listingsService = {
     return present(row);
   },
 
-  /** Publishing requires an entitled subscription; the caller passes the vendor's entitlement. */
-  async setStatus(listingId: string, vendorId: string, status: 'active' | 'paused', entitled: boolean) {
+  /**
+   * Publishing requires an entitled subscription and complete business contact details on the
+   * vendor profile; the caller passes both (from the session's vendor). Pausing needs neither,
+   * and listings that are already live are not affected by the contact rule.
+   */
+  async setStatus(listingId: string, vendorId: string, status: 'active' | 'paused', entitled: boolean, contactMissing: string[] = []) {
     const current = await ownedListing(listingId, vendorId);
     if (status === 'active') {
       if (!entitled) throw new ForbiddenError('Your subscription is not active. Pay the outstanding invoice to publish listings.', 'SUBSCRIPTION_INACTIVE');
+      if (contactMissing.length > 0) {
+        throw new AppError(422, 'BUSINESS_CONTACT_REQUIRED',
+          'Add your business email, phone number and WhatsApp number to your business profile before publishing.',
+          { missing: contactMissing });
+      }
       if ((current.photos ?? []).length < 3) throw new ValidationError('Add at least 3 photos before publishing');
       validatePricing(current);
     }

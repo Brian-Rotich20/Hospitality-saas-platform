@@ -36,6 +36,13 @@
       "when": 1795548392125,
       "tag": "0004_foreign_key_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795816189069,
+      "tag": "0005_vendor_business_contact",
+      "breakpoints": true
     }
   ]
 }
