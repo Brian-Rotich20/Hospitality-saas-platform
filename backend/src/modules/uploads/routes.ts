@@ -16,7 +16,8 @@ import { db } from '../../platform/database/client.js';
 import { uploads } from '../../platform/database/schema/platform.js';
 import { getStorage } from '../../platform/storage/index.js';
 import { env } from '../../platform/config/env.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../../app/errors.js';
+import { BadGatewayError, ForbiddenError, NotFoundError, ValidationError } from '../../app/errors.js';
+import { logger } from '../../platform/logger.js';
 
 const PURPOSES = ['listing_photo', 'vendor_logo', 'profile_photo'] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -34,7 +35,15 @@ async function processImage(file: MultipartFile, ownerUserId: string, purpose: P
   } catch {
     throw new ValidationError('The image could not be processed');
   }
-  const stored = await getStorage().putPublicImage(output, purpose, randomUUID(), 'image/webp');
+  let stored;
+  try {
+    stored = await getStorage().putPublicImage(output, purpose, randomUUID(), 'image/webp');
+  } catch (err) {
+    // Missing credentials or the provider being down: say so instead of a generic 500, and
+    // log the real cause for operators. Nothing is recorded when storage fails.
+    logger.error({ err, provider: env.STORAGE_PROVIDER, purpose }, 'image storage failed');
+    throw new BadGatewayError('Image storage is temporarily unavailable. Please try again.', 'STORAGE_UNAVAILABLE');
+  }
   const [row] = await db.insert(uploads).values({
     ownerUserId, purpose, provider: env.STORAGE_PROVIDER, publicId: stored.publicId, url: stored.url, bytes: stored.bytes, mimeType: stored.mimeType,
   }).returning({ id: uploads.id, url: uploads.url, publicId: uploads.publicId, bytes: uploads.bytes, mimeType: uploads.mimeType });

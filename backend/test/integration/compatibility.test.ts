@@ -78,6 +78,30 @@ describe('uploads: uploadType is required and must precede the file', () => {
     expect(row).toMatchObject({ purpose: 'profile_photo', ownerUserId: customer.userId });
   });
 
+  it('storage failure: 502 STORAGE_UNAVAILABLE with a clear message, nothing recorded', async () => {
+    const failing: Storage = { putPublicImage: () => Promise.reject(new Error('cloudinary down')), delete: () => Promise.resolve() };
+    setStorage(failing);
+    try {
+      const before = await uploadCount(customer);
+      const res = await upload([{ field: 'uploadType', value: 'profile_photo' }, file()]);
+      expect(res.statusCode).toBe(502);
+      expect(json(res)).toMatchObject({ code: 'STORAGE_UNAVAILABLE' });
+      expect(res.body).not.toContain('cloudinary down');
+      expect(await uploadCount(customer)).toBe(before);
+    } finally {
+      setStorage(storage);
+    }
+  });
+
+  it('file over MAX_FILE_SIZE: 413 with a stable code, nothing stored', async () => {
+    const before = storage.stored;
+    const big = { file: Buffer.alloc(6 * 1024 * 1024, 1), filename: 'big.jpg', type: 'image/jpeg' };
+    const res = await upload([{ field: 'uploadType', value: 'profile_photo' }, big]);
+    expect(res.statusCode).toBe(413);
+    expect(json(res).code).toBe('FST_REQ_FILE_TOO_LARGE');
+    expect(storage.stored).toBe(before);
+  });
+
   it('role rules are unchanged: customers still cannot upload listing photos; vendors can, also in bulk', async () => {
     expect((await upload([{ field: 'uploadType', value: 'listing_photo' }, file()])).statusCode).toBe(403);
     const vendor = await makeVendor('Upload Order Co');
