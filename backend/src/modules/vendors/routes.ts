@@ -5,13 +5,18 @@ import { ok, pagination } from '../../app/http.js';
 import { vendorsService, ownerView, profileCompleteness } from './service.js';
 import { vendorsRepo } from './repo.js';
 import { ForbiddenError } from '../../app/errors.js';
+import { contactEmail, contactPhone } from './contact.js';
 
 export const kenyanPhone = z.string().regex(/^(\+254|0)[17]\d{8}$/, 'Invalid Kenyan phone number');
 
+// Business profile. Contact numbers accept Kenyan local or international formats and are
+// stored as E.164 (+2547…); null or "" clears a contact field. Unknown fields are ignored.
 const profileBody = z.object({
   businessName: z.string().trim().min(3).max(255).optional(),
-  phoneNumber: kenyanPhone.optional(),
   logo: z.string().url().max(500).optional(),
+  businessEmail: contactEmail.optional(),
+  phoneNumber: contactPhone.optional(),
+  whatsappNumber: contactPhone.optional(),
 });
 
 const payoutBody = z.discriminatedUnion('payoutMethod', [
@@ -29,7 +34,7 @@ export const vendorRoutes: FastifyPluginAsyncZod = async (app) => {
     preValidation: guards.verifiedUser,
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
     // The body is optional: a missing or empty body onboards with defaults from the user profile.
-    schema: { tags: ['Vendors'], body: z.preprocess((v) => v ?? {}, z.object({ businessName: z.string().trim().min(3).max(255).optional(), phoneNumber: kenyanPhone.optional() })) },
+    schema: { tags: ['Vendors'], body: z.preprocess((v) => v ?? {}, z.object({ businessName: z.string().trim().min(3).max(255).optional(), phoneNumber: contactPhone.optional() })) },
   }, async (request, reply) => {
     const authCtx = requireUser(request);
     if (authCtx.role === 'admin') throw new ForbiddenError('Administrator accounts cannot become vendors', 'ADMIN_CANNOT_ONBOARD');
@@ -40,8 +45,8 @@ export const vendorRoutes: FastifyPluginAsyncZod = async (app) => {
 
   app.get('/me', { preValidation: guards.vendor, schema: { tags: ['Vendors'] } }, async (request) => {
     const { vendor, entitlement } = requireVendorCtx(request);
-    const { complete, missing } = profileCompleteness(vendor);
-    return ok({ ...ownerView(vendor), profileComplete: complete, missing, subscription: entitlement });
+    const { complete, missing, contactMissing } = profileCompleteness(vendor);
+    return ok({ ...ownerView(vendor), profileComplete: complete, missing, contactMissing, subscription: entitlement });
   });
 
   app.put('/me', { preValidation: guards.vendor, schema: { tags: ['Vendors'], body: profileBody } },

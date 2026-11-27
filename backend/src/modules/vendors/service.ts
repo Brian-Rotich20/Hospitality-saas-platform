@@ -10,25 +10,33 @@ import { vendorsRepo, publicVendorColumns, type VendorRow } from './repo.js';
 import { subscriptionsService } from '../subscriptions/service.js';
 import { recordAudit } from '../../app/audit.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../app/errors.js';
+import { missingContact } from './contact.js';
 
-const publicKey = (vendorId: string) => `vendor:public:v3:${vendorId}`;
+const publicKey = (vendorId: string) => `vendor:public:v4:${vendorId}`;
 
 function slugify(name: string): string {
   const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'vendor';
   return `${base}-${Date.now().toString(36)}`;
 }
 
-export function profileCompleteness(v: Pick<VendorRow, 'logo' | 'phoneNumber'>) {
-  const missing: string[] = [];
+const CONTACT_LABEL = { businessEmail: 'business email', phoneNumber: 'phone number', whatsappNumber: 'WhatsApp number' } as const;
+
+/**
+ * What the profile still lacks, as human labels (`missing`). `contactMissing` lists the
+ * contact fields (API names) that must be filled in before a listing can be published.
+ */
+export function profileCompleteness(v: Pick<VendorRow, 'logo' | 'phoneNumber' | 'businessEmail' | 'whatsappNumber'>) {
+  const contactMissing = missingContact(v);
+  const missing: string[] = contactMissing.map((k) => CONTACT_LABEL[k]);
   if (!v.logo) missing.push('logo');
-  if (!v.phoneNumber) missing.push('phone number');
-  return { complete: missing.length === 0, missing };
+  return { complete: missing.length === 0, missing, contactMissing };
 }
 
 /** The owner's view: includes payout details, never shown to anyone else. */
 export function ownerView(v: VendorRow) {
   return {
-    id: v.id, businessName: v.businessName, slug: v.slug, phoneNumber: v.phoneNumber, logo: v.logo, verified: v.verified,
+    id: v.id, businessName: v.businessName, slug: v.slug, logo: v.logo, verified: v.verified,
+    businessEmail: v.businessEmail, phoneNumber: v.phoneNumber, whatsappNumber: v.whatsappNumber,
     status: v.status, onboardedAt: v.onboardedAt, createdAt: v.createdAt, updatedAt: v.updatedAt,
     payoutDetails: { method: v.payoutMethod, mpesaNumber: v.mpesaNumber, bankAccountName: v.bankAccountName, bankAccountNumber: v.bankAccountNumber, bankName: v.bankName },
   };
@@ -39,7 +47,7 @@ export const vendorsService = {
    * Become a vendor: creates the vendor profile, switches the account to the vendor role
    * and starts the one-month free trial, atomically. Idempotent for existing vendors.
    */
-  async onboard(userId: string, input: { businessName?: string | undefined; phoneNumber?: string | undefined }, requestId?: string) {
+  async onboard(userId: string, input: { businessName?: string | undefined; phoneNumber?: string | null | undefined }, requestId?: string) {
     return withTransaction(async (tx) => {
       const [user] = await tx.select({ id: users.id, role: users.role, fullName: users.fullName, phone: users.phone })
         .from(users).where(eq(users.id, userId)).for('update');
@@ -61,12 +69,22 @@ export const vendorsService = {
     });
   },
 
-  async updateProfile(vendor: VendorRow, input: { businessName?: string | undefined; phoneNumber?: string | undefined; logo?: string | undefined }) {
+  /**
+   * Update the vendor's own business profile (identity and public contact). The vendor is
+   * always the caller's own (from the session); the login email on the user is never touched.
+   * Contact numbers arrive already normalised by the route schema; null clears a field.
+   */
+  async updateProfile(vendor: VendorRow, input: {
+    businessName?: string | undefined; logo?: string | undefined;
+    businessEmail?: string | null | undefined; phoneNumber?: string | null | undefined; whatsappNumber?: string | null | undefined;
+  }) {
     // Slugs are stable: renaming a business must not break shared links.
     const updated = await vendorsRepo.update(vendor.id, {
       ...(input.businessName !== undefined && { businessName: input.businessName }),
-      ...(input.phoneNumber !== undefined && { phoneNumber: input.phoneNumber }),
       ...(input.logo !== undefined && { logo: input.logo }),
+      ...(input.businessEmail !== undefined && { businessEmail: input.businessEmail }),
+      ...(input.phoneNumber !== undefined && { phoneNumber: input.phoneNumber }),
+      ...(input.whatsappNumber !== undefined && { whatsappNumber: input.whatsappNumber }),
     });
     await cache.del(publicKey(vendor.id));
     await cache.bump('catalog');

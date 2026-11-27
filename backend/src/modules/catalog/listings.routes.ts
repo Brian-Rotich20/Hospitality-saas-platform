@@ -7,6 +7,7 @@ import {
   listingResponse, listingListResponse, listingSearchResponse,
 } from './listings.schema.js';
 import { vendorsRepo } from '../vendors/repo.js';
+import { missingContact } from '../vendors/contact.js';
 import { z } from 'zod';
 
 /** Mounted at /api/listings. Static paths are registered before /:id. */
@@ -42,7 +43,7 @@ export const listingRoutes: FastifyPluginAsyncZod = async (app) => {
   app.patch('/:id/status', { preValidation: guards.activeVendor, schema: { tags: ['Listings'], params: idParams, body: listingStatusSchema, response: { 200: listingResponse } } },
     async (request) => {
       const { vendor, entitlement } = requireVendorCtx(request);
-      const row = await listingsService.setStatus(request.params.id, vendor.id, request.body.status, entitlement.entitled);
+      const row = await listingsService.setStatus(request.params.id, vendor.id, request.body.status, entitlement.entitled, missingContact(vendor));
       return ok(row, { message: request.body.status === 'active' ? 'Listing published' : 'Listing paused' });
     });
 

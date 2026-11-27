@@ -15,8 +15,12 @@ export const vendors = pgTable('vendors', {
   businessName: varchar('business_name', { length: 255 }).notNull(),
   slug:         varchar('slug', { length: 255 }).notNull().unique(),
 
-  // Contact
-  phoneNumber: varchar('phone_number', { length: 20 }),
+  // Public business contact, shown on every listing of this vendor. Separate from the
+  // owner's login email (users.email). Numbers are stored in international format
+  // (+2547…) when written through the API; older rows may hold local format (07…).
+  phoneNumber:    varchar('phone_number', { length: 20 }),
+  businessEmail:  varchar('business_email', { length: 255 }),
+  whatsappNumber: varchar('whatsapp_number', { length: 20 }),
 
   // Media
   logo: varchar('logo', { length: 500 }),

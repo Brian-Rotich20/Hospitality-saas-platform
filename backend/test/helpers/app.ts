@@ -71,10 +71,17 @@ export async function makeCustomer(): Promise<Actor> {
   return signUp({ name: 'Customer Person' });
 }
 
-export async function makeVendor(businessName = 'Test Venue Co'): Promise<Actor & { vendorId: string }> {
+/** Business contact every test vendor gets unless `withContact: false` (publishing needs it). */
+export const TEST_CONTACT = { businessEmail: 'bookings@venue.test', phoneNumber: '0712345678', whatsappNumber: '+254 712 345 679' };
+
+export async function makeVendor(businessName = 'Test Venue Co', opts: { withContact?: boolean } = {}): Promise<Actor & { vendorId: string }> {
   const actor = await signUp({ name: 'Vendor Person' });
   const res = await call('POST', '/api/vendors/become', { actor, body: { businessName } });
   if (res.statusCode !== 201) throw new Error(`onboarding failed ${res.statusCode}: ${res.body}`);
+  if (opts.withContact !== false) {
+    const upd = await call('PUT', '/api/vendors/me', { actor, body: TEST_CONTACT });
+    if (upd.statusCode !== 200) throw new Error(`contact update failed ${upd.statusCode}: ${upd.body}`);
+  }
   return { ...actor, vendorId: json(res).data.id as string };
 }
 

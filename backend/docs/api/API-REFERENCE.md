@@ -128,10 +128,15 @@ Better Auth admin operations that would bypass LinkMart's rules are **disabled f
 | Method | Path | Guard | Request | Notes |
 | --- | --- | --- | --- | --- |
 | POST | `/become` | Verified | optional `{ businessName? (3–255), phoneNumber? }` | **Instant onboarding**: creates the vendor, switches the role to `vendor`, starts the one-month free trial. 201 created / 200 already a vendor. Admins: 403 `ADMIN_CANNOT_ONBOARD`. Rate limit 5/min |
-| GET | `/me` | Vendor | – | Owner view + `profileComplete`, `missing[]`, `subscription` (entitlement) |
-| PUT | `/me` | Vendor | `{ businessName?, phoneNumber?, logo? (URL) }` | Slug is stable across renames |
+| GET | `/me` | Vendor | – | Owner view (incl. `businessEmail`, `phoneNumber`, `whatsappNumber`) + `profileComplete`, `missing[]` (labels), `contactMissing[]` (API field names still needed to publish), `subscription` (entitlement) |
+| PUT | `/me` | Vendor | `{ businessName? (3–255), logo? (URL), businessEmail?, phoneNumber?, whatsappNumber? }` | The caller's own profile only. Contact fields: `null` or `""` clears; numbers accept Kenyan local (`0712 345 678`, `020 …`) or international (`+44 …`) formats and are stored as E.164 (`+254712345678`); email is lower-cased. 422 `VALIDATION_FAILED` with `details[].path` per field. Never changes the login email. Slug is stable across renames |
 | POST | `/me/payout-details` | Vendor | `{ payoutMethod:'mpesa', mpesaNumber }` or `{ payoutMethod:'bank', bankAccountName, bankAccountNumber, bankName }` | Private to the vendor. **LinkMart makes no payouts** (decision D9 pending); consider hiding this in the UI |
-| GET | `/:vendorId` | Public | – | Public profile: `id, businessName, slug, logo, phoneNumber, verified, createdAt`. 404 if suspended or unentitled |
+| GET | `/:vendorId` | Public | – | Public profile: `id, businessName, slug, logo, businessEmail, phoneNumber, whatsappNumber, verified, createdAt`. 404 if suspended or unentitled |
+
+**Business contact.** `businessEmail`, `phoneNumber` and `whatsappNumber` belong to the vendor (not to listings) and are
+public: every listing response embeds them in `vendor`. They are separate from the account's login email, which is never
+exposed. Numbers written before this change may still be stored in local format (`07…`); normalise when building
+`tel:`/WhatsApp links.
 
 ---
 
@@ -147,7 +152,7 @@ Better Auth admin operations that would bypass LinkMart's rules are **disabled f
 | GET | `/:id` | Public (owner sees drafts) | – | 404 for drafts, deleted listings, or hidden vendors (unless you are the owner) |
 | POST | `/` | Active vendor | `{ categoryId, title (5–255), description (20–5000), location: { county, area, country?, latitude?, longitude? }, pricingType: per_hour\|per_day\|per_person\|package\|contact, price?, minPrice?, maxPrice?, currency?: 'KES', photos?: URL[], coverPhoto?: URL }` | Created as a **draft** (201) |
 | PUT | `/:id` | Active vendor (owner) | same fields, all optional | |
-| PATCH | `/:id/status` | Active vendor (owner) | `{ status: 'active' \| 'paused' }` | Publishing requires an entitled subscription (403 `SUBSCRIPTION_INACTIVE`) |
+| PATCH | `/:id/status` | Active vendor (owner) | `{ status: 'active' \| 'paused' }` | Publishing requires an entitled subscription (403 `SUBSCRIPTION_INACTIVE`) and a complete business contact on the vendor profile (422 `BUSINESS_CONTACT_REQUIRED`, `details.missing` lists `businessEmail` / `phoneNumber` / `whatsappNumber`). Pausing needs neither; listings already live are not affected |
 | DELETE | `/:id` | Vendor (owner) | – | Soft delete. 409 `LISTING_HAS_BOOKINGS` if open or upcoming bookings exist |
 
 ### Categories — `/api/categories`
