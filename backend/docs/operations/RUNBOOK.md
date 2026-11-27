@@ -10,6 +10,50 @@ session and is audited where it changes anything.
   (jobs are idempotent; outbox rows are claimed with `SKIP LOCKED` leases).
 - Both shut down gracefully on `SIGTERM` (30 s budget). Unfinished jobs are picked up again as *stalled* by another worker.
 
+## Frontend proxy, authentication and client IPs
+
+The frontend serves `/api/*` on its own origin and proxies it to this API (Next.js rewrite).
+Browsers never talk to the API host directly, so authentication must be configured for the
+**frontend** origin.
+
+| Setting | Local | Production |
+| --- | --- | --- |
+| `FRONTEND_URL` | `http://localhost:5173` (your Next dev port) | `https://<your-frontend-domain>` |
+| `BETTER_AUTH_URL` | same as `FRONTEND_URL` | same as `FRONTEND_URL` |
+| `CORS_ORIGINS` | includes `http://localhost:5173` | includes `https://<your-frontend-domain>` |
+| `API_PUBLIC_URL` | `http://localhost:3000` | the API's own public HTTPS URL (payment webhooks and callbacks go here, not through the frontend) |
+| Google OAuth redirect URI | `http://localhost:5173/api/auth/callback/google` | `https://<your-frontend-domain>/api/auth/callback/google` |
+
+- Session cookies are host-only (no `Domain` attribute). Issued through the proxy, they belong to
+  the frontend origin and are sent on every `/api` call. In production they are `Secure` and named
+  `__Secure-better-auth.session_token`.
+- Better Auth rejects auth requests from origins, and `callbackURL`/`redirectTo` values, that are not
+  in `CORS_ORIGINS` or the `BETTER_AUTH_URL` origin.
+- At startup the API logs a warning if the `BETTER_AUTH_URL` origin is missing from `CORS_ORIGINS`.
+
+### Rate limits and `TRUST_PROXY`
+- **Signed-in requests are limited per account** (the session is resolved before the limiter runs),
+  so users behind the same proxy or NAT never share limits.
+- **Anonymous requests are limited per client IP**: sign-in, sign-up, password reset and public
+  browsing. Through a proxy, that IP comes from `X-Forwarded-For`, which the API only believes from
+  proxies allowed by `TRUST_PROXY`.
+- `TRUST_PROXY` accepts `false`, a hop count (1–5), or proxy IPs/CIDRs. `true` is refused at startup.
+  - Prefer the proxy CIDR list when your platform publishes the proxy's egress ranges.
+  - Use a hop count only when the API is reachable **only** through those hops (private service or
+    firewall). Otherwise a direct caller can forge `X-Forwarded-For` and pick its own rate-limit bucket.
+  - The value depends on your hosting chain. Count every proxy that adds an `X-Forwarded-For` entry
+    between the browser and this process, then verify by checking the `ip` in an anonymous request's logs.
+- With `TRUST_PROXY=false` behind a proxy, every anonymous visitor shares the proxy's address and
+  hits limits together; the API logs a warning at startup in production.
+- **What the frontend proxy forwards (inspected in Next.js 15.5):** the router sets
+  `X-Forwarded-For` only when it is absent, so a client-supplied value passes through unchanged.
+  Only an edge or CDN in front of Next that overwrites the header makes it trustworthy. Check this
+  for your host before trusting it.
+- The auth bridge passes Better Auth the IP resolved under these rules (its own production limits and
+  session IP records use it), never a raw client header.
+- Server-rendered frontend pages call the API from the Next server without the visitor's IP.
+  Anonymous server-side fetches therefore share the Next server's bucket (300/min global).
+
 ## Is everything healthy?
 `GET /api/admin/operations/health`:
 

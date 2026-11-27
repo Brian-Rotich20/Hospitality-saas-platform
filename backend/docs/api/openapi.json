@@ -40,6 +40,32 @@
         }
       }
     },
+    "/api/auth/request-password-reset": {
+      "post": {
+        "summary": "Request a password-reset email: { email }. Always 200 with the same body, whether or not the account exists.",
+        "tags": [
+          "Auth (Better Auth)"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Set a new password: { token, newPassword }. Token is single-use; 400 INVALID_TOKEN if unknown, used or expired.",
+        "tags": [
+          "Auth (Better Auth)"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/auth/{*}": {
       "get": {
         "summary": "Better Auth endpoints (sign-up/email, sign-in/email, sign-out, get-session, …). See docs/api/API-REFERENCE.md",
@@ -822,7 +848,107 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "vendorId": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "pricingType": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "minPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "maxPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rating": {
+                            "nullable": true,
+                            "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                            "type": "number"
+                          },
+                          "reviewCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "vendorId",
+                          "slug",
+                          "status",
+                          "pricingType",
+                          "price",
+                          "minPrice",
+                          "maxPrice",
+                          "currency",
+                          "rating",
+                          "reviewCount"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "count",
+                    "total"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       },
@@ -949,8 +1075,93 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Default Response"
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "pricingType": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "minPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "maxPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rating": {
+                          "nullable": true,
+                          "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "vendorId",
+                        "slug",
+                        "status",
+                        "pricingType",
+                        "price",
+                        "minPrice",
+                        "maxPrice",
+                        "currency",
+                        "rating",
+                        "reviewCount"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -962,7 +1173,95 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "vendorId": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "pricingType": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "minPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "maxPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rating": {
+                            "nullable": true,
+                            "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                            "type": "number"
+                          },
+                          "reviewCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "vendorId",
+                          "slug",
+                          "status",
+                          "pricingType",
+                          "price",
+                          "minPrice",
+                          "maxPrice",
+                          "currency",
+                          "rating",
+                          "reviewCount"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -986,7 +1285,92 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "pricingType": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "minPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "maxPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rating": {
+                          "nullable": true,
+                          "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "vendorId",
+                        "slug",
+                        "status",
+                        "pricingType",
+                        "price",
+                        "minPrice",
+                        "maxPrice",
+                        "currency",
+                        "rating",
+                        "reviewCount"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -998,7 +1382,95 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "vendorId": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "pricingType": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "minPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "maxPrice": {
+                            "nullable": true,
+                            "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d{1,2})?$"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rating": {
+                            "nullable": true,
+                            "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                            "type": "number"
+                          },
+                          "reviewCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "vendorId",
+                          "slug",
+                          "status",
+                          "pricingType",
+                          "price",
+                          "minPrice",
+                          "maxPrice",
+                          "currency",
+                          "rating",
+                          "reviewCount"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -1022,7 +1494,92 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "pricingType": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "minPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "maxPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rating": {
+                          "nullable": true,
+                          "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "vendorId",
+                        "slug",
+                        "status",
+                        "pricingType",
+                        "price",
+                        "minPrice",
+                        "maxPrice",
+                        "currency",
+                        "rating",
+                        "reviewCount"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       },
@@ -1153,7 +1710,92 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "pricingType": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "minPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "maxPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rating": {
+                          "nullable": true,
+                          "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "vendorId",
+                        "slug",
+                        "status",
+                        "pricingType",
+                        "price",
+                        "minPrice",
+                        "maxPrice",
+                        "currency",
+                        "rating",
+                        "reviewCount"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       },
@@ -1221,7 +1863,92 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "pricingType": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "minPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "maxPrice": {
+                          "nullable": true,
+                          "description": "Display price as an exact decimal string, e.g. \"50000.00\"; null when not set. Informational only: nothing is charged.",
+                          "type": "string",
+                          "pattern": "^\\d+(\\.\\d{1,2})?$"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "rating": {
+                          "nullable": true,
+                          "description": "Average rating, one decimal (e.g. 4.5); null until the first review",
+                          "type": "number"
+                        },
+                        "reviewCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "vendorId",
+                        "slug",
+                        "status",
+                        "pricingType",
+                        "price",
+                        "minPrice",
+                        "maxPrice",
+                        "currency",
+                        "rating",
+                        "reviewCount"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2203,7 +2930,108 @@
         ],
         "responses": {
           "200": {
-            "description": "Default Response"
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "reviews": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "rating": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 5
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "rating"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "stats": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "average": {
+                              "nullable": true,
+                              "description": "One decimal, e.g. 4.5; null when there are no reviews",
+                              "type": "number"
+                            },
+                            "five": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "four": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "three": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "two": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "one": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "average",
+                            "five",
+                            "four",
+                            "three",
+                            "two",
+                            "one"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "reviews",
+                        "stats"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            }
           }
         }
       }

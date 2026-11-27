@@ -14,14 +14,28 @@ payments (card via Paystack, or M-Pesa STK Push).
 
 - Sessions are **HttpOnly cookies** set by Better Auth. Send every API request with credentials
   (`fetch(url, { credentials: 'include' })`, or `withCredentials: true` in axios). Never store tokens in `localStorage`.
-- **Deployment requirement:** the browser only sends the cookie if the frontend and API are same-site (e.g.
-  `linkmart.co.ke` and `api.linkmart.co.ke`). If they are on unrelated domains (e.g. `*.vercel.app` and `*.onrender.com`),
-  cookies need `SameSite=None; Secure`, which the backend does not configure today. Decide the domains before launch.
-- The frontend origin must be listed in the backend's `CORS_ORIGINS`.
+- **Deployment model: same-origin `/api` proxy.** The frontend serves `/api/*` on its own origin and proxies it to the
+  API (Next.js rewrite). Cookies are then first-party for the frontend, whatever domain the API runs on. Point the Better
+  Auth client at the frontend origin (`baseURL: window.location.origin`, `basePath: '/api/auth'`). The backend must be
+  configured with `BETTER_AUTH_URL` = the frontend origin, listed in `CORS_ORIGINS`; the Google redirect URI is
+  `{frontend origin}/api/auth/callback/google`. See the backend runbook.
+- Only use `callbackURL`/`redirectTo` values that are relative paths (e.g. `/store`) or on the frontend origin; others
+  are refused (403).
+- Server-side fetches from Next.js should forward the visitor's cookie. Anonymous server-side fetches are rate-limited
+  as the Next server's IP (300/min shared), so cache public pages where you can.
 - Sign up: `POST /api/auth/sign-up/email { email, password, name }`. The account is always a **customer**, and a
   6-digit code is emailed. Show an "enter your code" screen and call `POST /api/otp/verify-email { otp }`.
   Resend with `POST /api/otp/resend-otp` (throttled; on `OTP_RESEND_TOO_SOON` show a countdown).
 - Sign in / out: `POST /api/auth/sign-in/email`, `POST /api/auth/sign-out`.
+- **Forgot password:**
+  1. `POST /api/auth/request-password-reset { email }` always returns 200, so show "If an account exists, we've emailed
+     a link" whatever happens.
+  2. The email links to **`/auth/reset-password?token=…`** on the frontend (build this page). It posts
+     `POST /api/auth/reset-password { token, newPassword }`. On 400 `INVALID_TOKEN` (used, expired after 60 minutes, or
+     unknown), offer to request a new link.
+  3. A successful reset signs the user out everywhere; send them to sign-in.
+- **Vendor sign-up order:** `POST /api/vendors/become` requires a verified email (403 `EMAIL_NOT_VERIFIED`). Create the
+  account, verify the code, then call `become`.
 - Current user: `GET /api/users/me` (has `role` and `verified`). Use it on app load; a 401 means "signed out".
 - Booking, saving listings, reviews and becoming a vendor require a **verified email**. On 403 `EMAIL_NOT_VERIFIED`,
   route the user to the verification screen.
@@ -75,6 +89,10 @@ payments (card via Paystack, or M-Pesa STK Push).
 - Delete: `DELETE /api/listings/:id`. 409 `LISTING_HAS_BOOKINGS` means open or upcoming bookings exist.
 - Own listings (all statuses): `GET /api/listings/me`.
 - Prices on listings are for display only ("from KES 50,000 per day"). `pricingType: 'contact'` means "contact for price".
+- Types: `price`, `minPrice` and `maxPrice` are **strings** (`"50000.00"`, or `null`); parse them for display.
+  `rating` is a **number** (`4.5`) or `null`. Review stats `average` is a number or `null`.
+- **Uploads:** append `uploadType` to the `FormData` **before** the file(s). A missing or late `uploadType` returns 422
+  and nothing is stored. This applies to profile photos (`profile_photo`) as well as vendor images.
 
 ## 6. Subscription management
 
@@ -173,7 +191,8 @@ requested ──accept──▶ accepted ──(end date + 2 days)──▶ comp
 - Emails sent: booking requested (vendor), accepted, declined, expired (both parties), cancelled, new message,
   trial ending (7, 3 and 1 days before), payment due, payment succeeded, payment failed, subscription suspended,
   subscription expired.
-- Email links point at these `FRONTEND_URL` paths, so the frontend must serve them: `/vendor/subscription` (billing),
+- Email links point at these `FRONTEND_URL` paths, so the frontend must serve them: `/auth/reset-password?token=…`
+  (password reset), `/vendor/subscription` (billing),
   `/vendor/bookings/:bookingId`, `/customer/bookings/:bookingId` and `/messages/:conversationId`
   (defined in `src/platform/mailer/templates.ts`).
 
@@ -201,7 +220,10 @@ requested ──accept──▶ accepted ──(end date + 2 days)──▶ comp
 | Payouts | `/api/payouts/*`, `/api/admin/payouts/*` | **Removed** |
 | Dev endpoints | `/api/dev/seed-admin` | **Removed** |
 | Documents | `POST /api/upload/document` | **Removed** (no KYC uploads) |
-| Uploads | any user could delete any file | owner or admin only. `uploadType` required for vendor images. Images returned as WebP |
+| Uploads | any user could delete any file; upload type optional | owner or admin only. `uploadType` **required and must come before the file** (422 otherwise). Images returned as WebP |
+| Listing `rating` | decimal string (`"4.5"`) | number (`4.5`) or `null` |
+| Password reset | not available | `request-password-reset` + `reset-password`; frontend page `/auth/reset-password?token=` |
+| Rate limits | effectively per IP | per account when signed in; per client IP otherwise |
 | User stats | included `spent` | `spent` removed |
 | Listing search | items only | `total` and `count` added |
 | Slugs | changed on rename | stable |

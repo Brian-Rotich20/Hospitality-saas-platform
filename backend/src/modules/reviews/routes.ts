@@ -7,6 +7,19 @@ import { reviewsService } from './service.js';
 const listingParam = z.object({ listingId: z.string().uuid() });
 const reviewParam = z.object({ reviewId: z.string().uuid() });
 
+// Response contract: per-review rating is an integer 1-5; the average is a number or null.
+const reviewListResponse = z.looseObject({
+  success: z.literal(true),
+  data: z.looseObject({
+    reviews: z.array(z.looseObject({ id: z.string(), rating: z.number().int().min(1).max(5) })),
+    stats: z.object({
+      total: z.number().int(),
+      average: z.number().nullable().describe('One decimal, e.g. 4.5; null when there are no reviews'),
+      five: z.number().int(), four: z.number().int(), three: z.number().int(), two: z.number().int(), one: z.number().int(),
+    }),
+  }),
+});
+
 /** Mounted at /api/reviews. */
 export const reviewRoutes: FastifyPluginAsyncZod = async (app) => {
   app.post('/', {
@@ -17,7 +30,7 @@ export const reviewRoutes: FastifyPluginAsyncZod = async (app) => {
     return ok(await reviewsService.create(requireUser(request).userId, request.body));
   });
 
-  app.get('/listing/:listingId', { schema: { tags: ['Reviews'], params: listingParam, querystring: pagination } },
+  app.get('/listing/:listingId', { schema: { tags: ['Reviews'], params: listingParam, querystring: pagination, response: { 200: reviewListResponse } } },
     async (request) => ok(await reviewsService.forListing(request.params.listingId, request.query.limit, request.query.offset)));
 
   app.get('/eligibility/:listingId', { preValidation: guards.verifiedUser, schema: { tags: ['Reviews'], params: listingParam } }, async (request) => {

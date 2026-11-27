@@ -18,6 +18,35 @@ const intList = z.string().transform((s, ctx) => {
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 const optionalSecret = z.string().min(1).optional();
 
+/**
+ * Which proxies may set X-Forwarded-For. Deliberately never "trust everything":
+ *   false            -> use the socket address; ignore forwarded headers (default)
+ *   1..5             -> trust exactly that many proxy hops in front of the API
+ *   ip/cidr list     -> trust forwarded headers only from these proxy addresses
+ */
+export type TrustProxySetting = false | number | string[];
+const CIDR = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]+)(\/\d{1,3})?$/;
+export function parseTrustProxy(raw: string): TrustProxySetting | { error: string } {
+  const v = raw.trim();
+  if (v === '' || v === 'false') return false;
+  if (v === 'true') return { error: 'TRUST_PROXY=true (trust any proxy) is not allowed: set a hop count (1-5) or the proxy IP/CIDR list' };
+  if (/^\d+$/.test(v)) {
+    const n = Number(v);
+    return n >= 1 && n <= 5 ? n : { error: 'TRUST_PROXY hop count must be between 1 and 5' };
+  }
+  const list = v.split(',').map((s) => s.trim()).filter(Boolean);
+  if (list.length === 0 || !list.every((s) => CIDR.test(s))) return { error: 'TRUST_PROXY must be false, a hop count (1-5), or a comma-separated list of IP addresses/CIDR ranges' };
+  return list;
+}
+const trustProxy = z.string().prefault('false').transform((s, ctx): TrustProxySetting => {
+  const r = parseTrustProxy(s);
+  if (typeof r === 'object' && !Array.isArray(r)) {
+    ctx.addIssue({ code: 'custom', message: r.error });
+    return z.NEVER;
+  }
+  return r;
+});
+
 const envSchema = z.object({
   // ── Application
   NODE_ENV: z.enum(['development', 'production', 'test']),
@@ -29,8 +58,9 @@ const envSchema = z.object({
   CORS_ORIGINS: csv,                         // allowed browser origins (also Better Auth trusted origins)
   SWAGGER_ENABLED: bool.prefault('false'),
   RATE_LIMIT_ENABLED: bool.prefault('true'),
-  // Only enable behind a reverse proxy you control; otherwise clients can spoof their IP.
-  TRUST_PROXY: bool.prefault('false'),
+  // Proxies allowed to set X-Forwarded-For (client IP for rate limits and the Daraja IP
+  // allow-list). See parseTrustProxy; unrestricted trust is rejected.
+  TRUST_PROXY: trustProxy,
   COOKIE_SECRET: z.string().min(32),
 
   // ── Database

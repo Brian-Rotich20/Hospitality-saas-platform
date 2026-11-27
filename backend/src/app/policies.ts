@@ -52,6 +52,30 @@ export async function resolveAuth(request: FastifyRequest): Promise<AuthContext 
   };
 }
 
+/**
+ * Resolve the session at most once per request. The rate limiter (onRequest) and the
+ * guards (preValidation) both need it; the lookup is shared, never repeated.
+ */
+const resolved = new WeakMap<FastifyRequest, Promise<AuthContext | null>>();
+export function getAuth(request: FastifyRequest): Promise<AuthContext | null> {
+  let p = resolved.get(request);
+  if (!p) {
+    p = resolveAuth(request);
+    resolved.set(request, p);
+  }
+  return p;
+}
+
+/**
+ * Rate-limit identity: the signed-in user when there is a valid session, otherwise the
+ * client IP (as resolved by Fastify under TRUST_PROXY). Separate namespaces so a user id
+ * can never collide with an address.
+ */
+export async function rateLimitKey(request: FastifyRequest): Promise<string> {
+  const a = await getAuth(request);
+  return a ? `user:${a.userId}` : `ip:${request.ip}`;
+}
+
 export function requireUser(request: FastifyRequest): AuthContext {
   if (!request.auth) throw new UnauthorizedError();
   return request.auth;
@@ -63,7 +87,7 @@ export function requireVendorCtx(request: FastifyRequest): VendorContext {
 }
 
 const authenticate: preValidationAsyncHookHandler = async (request: FastifyRequest, _reply: FastifyReply) => {
-  request.auth ??= await resolveAuth(request);
+  request.auth ??= await getAuth(request);
   if (!request.auth) throw new UnauthorizedError('Unauthorized — invalid or expired session');
 };
 
@@ -123,5 +147,5 @@ export const guards = {
 
 /** Populate `request.auth` without rejecting (public routes that show more to owners). */
 export const optionalAuth: preValidationAsyncHookHandler = async (request) => {
-  request.auth = await resolveAuth(request);
+  request.auth = await getAuth(request);
 };

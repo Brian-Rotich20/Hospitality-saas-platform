@@ -13,6 +13,7 @@ import { loggerOptions } from '../platform/logger.js';
 import { pingDatabase } from '../platform/database/client.js';
 import { pingRedis, redis } from '../platform/cache/redis.js';
 import { registerErrorHandling } from './error-handler.js';
+import { rateLimitKey } from './policies.js';
 
 import { authBridge, otpRoutes } from '../modules/identity/routes.js';
 import { userRoutes, customerAdminRoutes } from '../modules/users/routes.js';
@@ -28,6 +29,9 @@ import { reviewRoutes } from '../modules/reviews/routes.js';
 import { uploadRoutes } from '../modules/uploads/routes.js';
 import { operationsAdminRoutes } from '../modules/operations/routes.js';
 
+/** Trust exactly `n` proxy hops in front of the API (hop 0 is the direct peer). */
+const trustHops = (n: number) => (_address: string, hop: number) => hop < n;
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: loggerOptions,
@@ -35,7 +39,9 @@ export async function buildApp(): Promise<FastifyInstance> {
       const given = req.headers['x-request-id'];
       return typeof given === 'string' && /^[\w-]{8,64}$/.test(given) ? given : randomUUID();
     },
-    trustProxy: env.TRUST_PROXY,
+    // A hop count is passed as the equivalent trust function (what Fastify builds from a
+    // number internally); IP/CIDR lists and `false` are passed through.
+    trustProxy: typeof env.TRUST_PROXY === 'number' ? trustHops(env.TRUST_PROXY) : env.TRUST_PROXY,
     bodyLimit: 1024 * 1024,
   }).withTypeProvider<ZodTypeProvider>();
 
@@ -67,7 +73,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     timeWindow: '1 minute',
     enableDraftSpec: true,
     ...(env.RATE_LIMIT_ENABLED ? { redis, skipOnError: true } : { allowList: () => true }),
-    keyGenerator: (request) => request.auth?.userId ?? request.ip,
+    // Runs at onRequest, before the guards, so the session is resolved here (once; the
+    // guards reuse it). Signed-in callers are limited per user, anonymous ones per client IP.
+    keyGenerator: rateLimitKey,
   });
 
   if (env.SWAGGER_ENABLED) {

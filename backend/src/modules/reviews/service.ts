@@ -50,7 +50,9 @@ export const reviewsService = {
       with: { customer: { columns: { id: true, fullName: true } } },
       orderBy: [desc(reviews.createdAt)], limit, offset,
     });
-    return { reviews: items, stats: await stats(listingId) };
+    const s = await stats(listingId);
+    // API contract: average is a number (one decimal) or null, never a string.
+    return { reviews: items, stats: { ...s, average: s.average === null ? null : Number(s.average) } };
   },
 
   async eligibility(customerId: string, listingId: string) {
